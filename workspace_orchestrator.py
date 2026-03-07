@@ -35,6 +35,7 @@ from shared.bus.analytics import analytics, AnalyticsCollector
 from shared.bus.auto_executor import AutoExecutor, get_auto_executor
 from shared.chat_history import chat_history, ChatHistoryManager
 from shared.resource_monitor import resource_monitor, ResourceMonitor
+from shared.agent_health_monitor import health_monitor, AgentHealthMonitor, AgentState
 
 logging.basicConfig(
     level=logging.INFO,
@@ -83,6 +84,10 @@ class WorkspaceOrchestrator:
         self.auto_executor = get_auto_executor(self)
         self.chat_history = chat_history
         self.resource_monitor = resource_monitor
+        self.health_monitor = health_monitor
+        
+        # Register health alert callback
+        self.health_monitor.register_callback(self._on_health_alert)
         
         # Agent threads (not processes - shared memory for MessageBus)
         self.agents: Dict[str, AgentThread] = {}
@@ -119,6 +124,12 @@ class WorkspaceOrchestrator:
             self.agents[agent_id].model = payload.get('model', '')
             # Update task count in resource monitor
             self.resource_monitor.update_agent_task_count(agent_id, 0)
+            # Update health monitor
+            self.health_monitor.update_agent_status(
+                agent_id, 
+                self.agents[agent_id].name, 
+                "idle"
+            )
             logger.info(f"Agent {payload.get('name')} is online")
     
     def _on_agent_offline(self, message: Message):
@@ -134,6 +145,13 @@ class WorkspaceOrchestrator:
         if agent_id in self.agents:
             self.agents[agent_id].status = "working"
             self.agents[agent_id].current_task = message.payload.get('description')
+            # Update health monitor
+            self.health_monitor.update_agent_status(
+                agent_id,
+                self.agents[agent_id].name,
+                "working",
+                message.payload.get('description')
+            )
             logger.info(f"Agent {agent_id} started task: {message.payload.get('description', '')[:50]}...")
     
     def _on_task_completed(self, message: Message):
@@ -148,6 +166,12 @@ class WorkspaceOrchestrator:
             self.agents[agent_id].tasks_completed += 1
             # Update resource monitor
             self.resource_monitor.update_agent_task_count(agent_id, 1)
+            # Update health monitor
+            self.health_monitor.update_agent_status(
+                agent_id,
+                self.agents[agent_id].name,
+                "idle"
+            )
         
         # Update mission if this was part of one
         if message.correlation_id:
@@ -161,15 +185,94 @@ class WorkspaceOrchestrator:
     def _on_task_failed(self, message: Message):
         """Handle task failure"""
         agent_id = message.sender
+        error_msg = message.payload.get('error', 'Unknown error')
+        
         if agent_id in self.agents:
             self.agents[agent_id].status = "error"
             self.agents[agent_id].current_task = None
+            # Update health monitor
+            self.health_monitor.update_agent_status(
+                agent_id,
+                self.agents[agent_id].name,
+                "error"
+            )
+            self.health_monitor.record_error(agent_id, error_msg)
         
-        logger.error(f"Agent {agent_id} failed task: {message.payload.get('error')}")
+        logger.error(f"Agent {agent_id} failed task: {error_msg}")
     
     def _on_agent_status(self, message: Message):
         """Handle status updates"""
         pass
+    
+    def _on_health_alert(self, alert: Dict):
+        """Handle health monitor alerts"""
+        agent_name = alert.get('agent_name', 'Unknown')
+        issue = alert.get('issue', {})
+        issue_type = issue.get('type', 'unknown')
+        severity = issue.get('severity', 'info')
+        message = issue.get('message', '')
+        suggested_action = issue.get('suggested_action', '')
+        
+        logger.warning(f"Health Alert: {agent_name} - {message}")
+        
+        # Log to activity tracker for dashboard visibility
+        from shared.bus.message_bus import Message, MessageType
+        self.bus.publish(Message.create(
+            MessageType.SYSTEM_MESSAGE,
+            sender="health_monitor",
+            payload={
+                "content": f"Health Alert: {message}",
+                "severity": severity,
+                "agent": agent_name,
+                "issue_type": issue_type,
+                "suggested_action": suggested_action
+            }
+        ))
+        
+        # Auto-remediation for critical issues
+        if severity == "critical":
+            agent_id = alert.get('agent_id')
+            if agent_id and agent_id in self.agents:
+                record = self.health_monitor.get_agent_health(agent_id)
+                if record and self.health_monitor.should_auto_respawn(agent_id):
+                    logger.info(f"Auto-respawning {agent_name} due to critical issue")
+                    self._respawn_agent(agent_id)
+    
+    def _respawn_agent(self, agent_id: str) -> bool:
+        """Respawn an agent"""
+        if agent_id not in self.agents:
+            return False
+        
+        agent = self.agents[agent_id]
+        name = agent.name
+        
+        # Kill old
+        if agent.stop_event:
+            agent.stop_event.set()
+        agent.status = "offline"
+        
+        # Unregister from monitors
+        self.resource_monitor.unregister_agent(agent_id)
+        
+        # Small delay
+        time.sleep(0.5)
+        
+        # Spawn new
+        try:
+            result = self.spawn_agent(name.lower())
+            if result:
+                self.resource_monitor.register_agent(result.id, result.name)
+                self.health_monitor.health_records[agent_id].total_restarts += 1
+                logger.info(f"Respawned {name}")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to respawn {name}: {e}")
+        
+        return False
+    
+    def get_health_summary(self) -> Dict:
+        """Get health summary for dashboard"""
+        return self.health_monitor.get_health_summary()
     
     def spawn_agent(self, name: str) -> Optional[AgentThread]:
         """
@@ -527,7 +630,8 @@ class WorkspaceOrchestrator:
             "system_metrics": self.analytics.get_system_metrics(),
             "agent_performance": self.analytics.get_agent_performance(),
             "activity_timeline": self.analytics.get_activity_timeline(),
-            "resource_summary": self.resource_monitor.get_system_summary()
+            "resource_summary": self.resource_monitor.get_system_summary(),
+            "health_summary": self.get_health_summary()
         }
     
     def _calculate_progress(self, mission: Mission) -> Dict[str, int]:
@@ -548,6 +652,10 @@ class WorkspaceOrchestrator:
         self.running = True
         logger.info("Workspace Orchestrator running")
         
+        # Start health monitor
+        self.health_monitor.start_monitoring(interval=10.0)
+        logger.info("Health monitor started")
+        
         while not self._shutdown_event.is_set():
             # Health check agents
             for agent_id, agent in list(self.agents.items()):
@@ -558,6 +666,8 @@ class WorkspaceOrchestrator:
             
             await asyncio.sleep(5)
         
+        # Stop health monitor
+        self.health_monitor.stop_monitoring()
         self.running = False
     
     def shutdown(self):
