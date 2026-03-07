@@ -460,20 +460,29 @@ def generate_response():
         if target:
             add_log("info", f"Manager processing: {last_msg[:50]}...")
             # Get response (thinking indicator is shown in chat UI)
+            # Use longer timeout for Manager with context
+            timeout = 60 if target['name'] == 'Manager' else 30
             response = st.session_state.orchestrator.chat_with_agent_sync(
-                target['name'], last_msg, timeout=30
+                target['name'], last_msg, timeout=timeout
             )
             
             if response:
                 st.session_state.messages.append({
                     "role": "agent", "name": target['name'], "avatar": target['avatar'], "content": response
                 })
+                add_log("success", f"{target['name']} responded ({len(response)} chars)")
             else:
+                # More specific error message
+                error_msg = f"❌ {target['name']} did not respond within {timeout}s. "
+                if target['status'] != 'idle':
+                    error_msg += f"Agent status is '{target['status']}'. "
+                error_msg += "Try respawning the agent."
+                
                 st.session_state.messages.append({
                     "role": "agent", "name": "System", "avatar": "⚠️",
-                    "content": "No response from agents. They may be offline."
+                    "content": error_msg
                 })
-                add_log("warning", "No response from agents")
+                add_log("error", f"{target['name']} timeout after {timeout}s")
         else:
             st.session_state.messages.append({
                 "role": "agent", "name": "System", "avatar": "🤖",

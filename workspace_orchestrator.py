@@ -513,21 +513,29 @@ USER MESSAGE: {message}"""
         
         # Wait for response by polling activity tracker
         start_time = time.time()
+        start_iso = datetime.fromtimestamp(start_time).isoformat()
+        logger.info(f"Waiting for response from {agent.name} (timeout: {timeout}s)")
         
         while time.time() - start_time < timeout:
             # Check for new activity from this agent
-            activity = self.tracker.get_agent_activity(agent.id, limit=5)
+            activity = self.tracker.get_agent_activity(agent.id, limit=10)
             
             for event in activity:
+                # Debug logging
+                if event['type'] == 'agent_message':
+                    logger.debug(f"Found agent_message from {event['from_agent']} to {event['to_agent']}, timestamp: {event['timestamp']}")
+                
                 if event['type'] == 'agent_message' and event['to_agent'] == 'user':
                     # Found a response to user
-                    if event['timestamp'] > datetime.fromtimestamp(start_time).isoformat():
+                    if event['timestamp'] > start_iso:
+                        logger.info(f"Got response from {agent.name} ({len(event['content'])} chars)")
                         # Save agent response to history
                         self.chat_history.save_message(agent.id, agent.name, "agent", event['content'])
                         return event['content']
             
             time.sleep(0.5)
         
+        logger.warning(f"Timeout waiting for {agent.name} after {timeout}s")
         return None  # Timeout
     
     def _build_manager_context(self) -> str:
