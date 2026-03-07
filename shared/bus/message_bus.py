@@ -3,7 +3,8 @@ import json
 import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, List, Callable, Optional, Any
+from typing import Dict, List, Callable, Optional, Any, Union
+from queue import Queue as ThreadQueue
 from dataclasses import dataclass, asdict
 from enum import Enum
 from collections import defaultdict
@@ -99,7 +100,7 @@ class MessageBus:
             return
             
         self._subscribers: Dict[str, List[Callable]] = defaultdict(list)
-        self._agent_queues: Dict[str, asyncio.Queue] = {}
+        self._agent_queues: Dict[str, Union[asyncio.Queue, ThreadQueue, List]] = {}
         self._message_history: List[Message] = []
         self._history_limit = 1000
         self._lock = threading.Lock()
@@ -146,11 +147,17 @@ class MessageBus:
     def send_to_agent(self, agent_id: str, message: Message) -> bool:
         """Send a message directly to an agent's queue"""
         if agent_id in self._agent_queues:
-            asyncio.create_task(self._agent_queues[agent_id].put(message))
+            queue = self._agent_queues[agent_id]
+            if isinstance(queue, asyncio.Queue):
+                asyncio.create_task(queue.put(message))
+            elif isinstance(queue, ThreadQueue):
+                queue.put(message)
+            elif isinstance(queue, list):
+                queue.append(message)
             return True
         return False
     
-    def register_agent_queue(self, agent_id: str, queue: asyncio.Queue):
+    def register_agent_queue(self, agent_id: str, queue: Union[asyncio.Queue, ThreadQueue, List]):
         """Register an agent's message queue"""
         self._agent_queues[agent_id] = queue
         logger.info(f"Agent {agent_id} registered with message queue")

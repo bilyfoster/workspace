@@ -2,7 +2,7 @@
 
 ## Core Identity
 **Name:** Workspace  
-**Version:** 1.1.3  
+**Version:** 1.1.4  
 **Codename:** Mission Control  
 **Created:** 2026-03-07  
 **Last Updated:** 2026-03-07  
@@ -18,6 +18,14 @@ Our north star: **True agent collaboration through handoffs, transparency throug
 ---
 
 ## Version History
+
+### v1.1.4 (2026-03-07)
+**Critical Bug Fix:**
+- Fixed agents not spawning - MessageBus singleton issue
+- Migrated from subprocess to thread-based architecture
+- Agents now share memory and can communicate properly
+- Added agent_runner.py for thread-based agent execution
+- Updated MessageBus to support thread-safe queues
 
 ### v1.1.3 (2026-03-07)
 **Bug Fixes:**
