@@ -516,18 +516,35 @@ USER MESSAGE: {message}"""
         start_iso = datetime.fromtimestamp(start_time).isoformat()
         logger.info(f"Waiting for response from {agent.name} (timeout: {timeout}s)")
         
+        # Track seen message IDs to avoid duplicates
+        seen_ids = set()
+        
         while time.time() - start_time < timeout:
             # Check for new activity from this agent
             activity = self.tracker.get_agent_activity(agent.id, limit=10)
             
             for event in activity:
+                # Skip already seen messages
+                if event['id'] in seen_ids:
+                    continue
+                seen_ids.add(event['id'])
+                
                 # Debug logging
                 if event['type'] == 'agent_message':
-                    logger.debug(f"Found agent_message from {event['from_agent']} to {event['to_agent']}, timestamp: {event['timestamp']}")
+                    logger.debug(f"Found agent_message from {event['from_agent']} to {event['to_agent']}, ts: {event['timestamp']}")
                 
                 if event['type'] == 'agent_message' and event['to_agent'] == 'user':
-                    # Found a response to user
-                    if event['timestamp'] > start_iso:
+                    # Found a response to user - check if it's new (timestamp after start OR within last 2 seconds)
+                    event_time = event['timestamp']
+                    is_new = event_time > start_iso
+                    
+                    # Fallback: if event is very recent (within 5 seconds), accept it even if timestamp comparison fails
+                    time_diff = (datetime.now() - datetime.fromisoformat(event_time)).total_seconds()
+                    if not is_new and time_diff < 5:
+                        logger.debug(f"Accepting recent message despite timestamp (diff: {time_diff}s)")
+                        is_new = True
+                    
+                    if is_new:
                         logger.info(f"Got response from {agent.name} ({len(event['content'])} chars)")
                         # Save agent response to history
                         self.chat_history.save_message(agent.id, agent.name, "agent", event['content'])
