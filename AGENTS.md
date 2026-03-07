@@ -1,13 +1,18 @@
-# Workspace v1.4.0 - Agent Documentation
+# Workspace v1.5.0 - Agent Documentation
 
 ## Overview
 The Workspace is a multi-agent AI orchestration system running on macOS bare metal with Ollama local LLMs. It uses thread-based agents (not processes) for shared memory access.
 
-**New in v1.4.0:**
+**New in v1.5.0:**
+- **Manager Agent** (🎩) - Primary point of contact and overseer
+- **Dynamic Agent Creation** - Create new agents on-the-fly from templates or custom
+- **Thinking Animations** - Visual indicators when agents are processing
+- Full visibility into all agent activities
+
+**Previous features:**
 - Per-agent resource monitoring (CPU, memory)
 - Individual agent management controls
 - Better status icons and activity indicators
-- Agent health checking with ping functionality
 
 ## Architecture
 
@@ -28,8 +33,11 @@ Each agent has a `soul.md` file defining:
 
 ## Available Agents
 
+### Core Team
+
 | Agent | Role | Model | Key Skill |
 |-------|------|-------|-----------|
+| **Manager** | **Overseer** | **qwen3.5:9b** | **Team orchestration, primary contact** |
 | Hunter | Lead Orchestrator | dolphin3 | Mission planning, delegation |
 | Pepper | HR Manager | dolphin3 | Team coordination, wellness |
 | Scout | Researcher | qwen3.5:9b | Information gathering |
@@ -42,18 +50,36 @@ Each agent has a `soul.md` file defining:
 | Guardian | Security Lead | qwen3.5:9b | Security analysis |
 | Lingua | Translator | dolphin3 | Multi-language support |
 
+### Dynamic Templates (v1.5.0)
+
+| Template | Avatar | Skills |
+|----------|--------|--------|
+| Data Analyst | 📊 | Statistics, visualization, SQL |
+| Legal Expert | ⚖️ | Contracts, compliance, research |
+| Financial Analyst | 💰 | Modeling, investments, forecasting |
+| Customer Support | 🎧 | Issue resolution, communication |
+| DevOps Engineer | 🔧 | CI/CD, Docker, cloud |
+| QA Tester | 🐞 | Test planning, bug reporting |
+| UX Researcher | 🧪 | User studies, testing |
+| Technical Writer | 📝 | Documentation, API guides |
+| Sales Rep | 💼 | Lead gen, demos, CRM |
+| Product Manager | 📱 | Roadmaps, prioritization |
+
 ## Dashboard Pages
 
-1. **Dashboard** - System overview, agent status with resource usage
-2. **Chat 1-on-1** - Individual agent chat with health check
-3. **Group Chat** - Multi-agent discussions  
-4. **Agent Control** - Individual agent management (NEW: spawn/kill/ping per agent)
-5. **Missions** - Task board with parallel execution
-6. **Handoffs** - Manual/auto handoff management
-7. **Alerts** - System notifications
-8. **Analytics** - Activity tracking and resource charts
-9. **Logs & Debug** - Debug and error logs
-10. **System** - Settings and configuration
+1. **🎩 Manager** - **Primary overseer interface** (NEW v1.5.0)
+   - Live team status with thinking indicators
+   - Chat with Manager for high-level control
+   - Create new agents dynamically
+   - Quick squad spawning
+   
+2. **Dashboard** - System overview
+3. **Chat** - Individual agent conversations
+4. **Agents** - Individual agent management
+5. **Missions** - Task board
+6. **Analytics** - Resource charts
+7. **Logs** - System logs
+8. **System** - Configuration
 2. **Chat** - 1-on-1 agent conversations (30s timeout)
 3. **Group Chat** - Multi-agent discussions
 4. **Spawn Agents** - Agent management (respawn/kill)
@@ -64,13 +90,42 @@ Each agent has a `soul.md` file defining:
 9. **Logs** - Debug and error logs
 10. **System** - Settings and configuration
 
-## Key Features (v1.4.0)
+## Key Features (v1.5.0)
 
 ### Parallel Task Execution
 ```python
 orchestrator.execute_mission_parallel(mission_id)
 # Runs all pending tasks concurrently with ThreadPoolExecutor
 ```
+
+### Manager Overseer (NEW)
+- **Manager Agent** (🎩) as your primary point of contact
+- Full visibility into all agent activities
+- Natural language commands: "Who's working on what?"
+- Manager can spawn agents and create new roles
+- Live activity feed with thinking indicators
+
+### Dynamic Agent Creation (NEW)
+Create new agents on-the-fly:
+```python
+# From template
+agent_factory.create_agent_from_template("data_analyst", "Atlas")
+
+# Custom creation
+agent_factory.create_custom_agent(
+    name="Zeus",
+    role="Cloud Architect",
+    avatar="☁️",
+    essence="Expert in cloud infrastructure...",
+    skills=["AWS", "Terraform", "Kubernetes"]
+)
+```
+
+### Visual Processing Indicators (NEW)
+- 🧠 Thinking animation with bouncing dots
+- Status badges with glow effects
+- Real-time "working on..." indicators
+- Brain pulse animation during processing
 
 ### Resource Monitoring
 - Real-time CPU and memory tracking per agent
@@ -89,6 +144,46 @@ orchestrator.execute_mission_parallel(mission_id)
 - Beta feature, may need manual adjustment
 
 ## Usage Examples
+
+### Chat with Manager (NEW)
+The Manager is your primary point of contact:
+```python
+orch = get_orchestrator()
+orth.spawn_agent('manager')
+
+# Ask about team status
+response = orch.chat_with_agent_sync('Manager', "Who's working on what?")
+
+# Spawn a squad
+response = orch.chat_with_agent_sync('Manager', "Spawn the creative squad")
+
+# Create a new agent
+response = orch.chat_with_agent_sync('Manager', "Create a data analyst named Atlas")
+```
+
+### Dynamic Agent Creation (NEW)
+```python
+from shared.agent_factory import agent_factory
+
+# From template
+soul_path = agent_factory.create_agent_from_template(
+    template_key="data_analyst",
+    name="Atlas"
+)
+
+# Custom agent
+soul_path = agent_factory.create_custom_agent(
+    name="Zeus",
+    role="Cloud Architect", 
+    avatar="☁️",
+    essence="Cloud infrastructure expert...",
+    skills=["AWS", "Terraform", "Kubernetes"],
+    model="qwen3-coder"
+)
+
+# Spawn the new agent
+orch.spawn_agent(soul_path.parent.name)
+```
 
 ### Spawn an Agent
 ```python
@@ -190,7 +285,8 @@ WORKSPACE_DATA_DIR=./data
 
 ## Version History
 
-- **v1.4.0** (Current): Resource monitoring, individual agent controls, better UX
+- **v1.5.0** (Current): Manager Overseer, dynamic agent creation, thinking animations
+- **v1.4.0**: Resource monitoring, individual agent controls, better UX
 - **v1.3.0**: MVP Complete - Parallel execution, exports, handoffs
 - **v1.2.0**: Thread-based agents, persistent chat
 - **v1.1.0**: Mission system, basic task execution
