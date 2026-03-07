@@ -34,6 +34,7 @@ from shared.bus.alerts import alert_manager, AlertManager
 from shared.bus.analytics import analytics, AnalyticsCollector
 from shared.bus.auto_executor import AutoExecutor, get_auto_executor
 from shared.chat_history import chat_history, ChatHistoryManager
+from shared.resource_monitor import resource_monitor, ResourceMonitor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,6 +82,7 @@ class WorkspaceOrchestrator:
         self.analytics = analytics
         self.auto_executor = get_auto_executor(self)
         self.chat_history = chat_history
+        self.resource_monitor = resource_monitor
         
         # Agent threads (not processes - shared memory for MessageBus)
         self.agents: Dict[str, AgentThread] = {}
@@ -115,6 +117,8 @@ class WorkspaceOrchestrator:
         if agent_id in self.agents:
             self.agents[agent_id].status = "idle"
             self.agents[agent_id].model = payload.get('model', '')
+            # Update task count in resource monitor
+            self.resource_monitor.update_agent_task_count(agent_id, 0)
             logger.info(f"Agent {payload.get('name')} is online")
     
     def _on_agent_offline(self, message: Message):
@@ -142,6 +146,8 @@ class WorkspaceOrchestrator:
             self.agents[agent_id].status = "idle"
             self.agents[agent_id].current_task = None
             self.agents[agent_id].tasks_completed += 1
+            # Update resource monitor
+            self.resource_monitor.update_agent_task_count(agent_id, 1)
         
         # Update mission if this was part of one
         if message.correlation_id:
@@ -216,6 +222,9 @@ class WorkspaceOrchestrator:
             agent_thread.thread = thread
             self.agents[agent_id] = agent_thread
             
+            # Register with resource monitor
+            self.resource_monitor.register_agent(agent_id, name.title(), thread.ident)
+            
             logger.info(f"Spawned agent {name} as thread {thread.ident}")
             return agent_thread
             
@@ -241,6 +250,9 @@ class WorkspaceOrchestrator:
         if agent.stop_event:
             agent.stop_event.set()
         agent.status = "offline"
+        
+        # Unregister from resource monitor
+        self.resource_monitor.unregister_agent(agent_id)
         
         logger.info(f"Stopped agent {agent.name}")
         return True
@@ -514,7 +526,8 @@ class WorkspaceOrchestrator:
             "active_alerts": self.alerts.get_active_alerts(),
             "system_metrics": self.analytics.get_system_metrics(),
             "agent_performance": self.analytics.get_agent_performance(),
-            "activity_timeline": self.analytics.get_activity_timeline()
+            "activity_timeline": self.analytics.get_activity_timeline(),
+            "resource_summary": self.resource_monitor.get_system_summary()
         }
     
     def _calculate_progress(self, mission: Mission) -> Dict[str, int]:

@@ -271,6 +271,15 @@ Guidelines:
         elif message.type == MessageType.HANDOFF_ACCEPT.value:
             # Our handoff was accepted or rejected
             self._handle_handoff_response(message)
+        
+        elif message.type == 'ping':
+            # Respond to ping
+            self.bus.publish(Message.create(
+                MessageType.AGENT_STATUS,
+                sender=self.id,
+                recipient=message.sender,
+                payload={'status': self.status, 'pong': True}
+            ))
     
     def _handle_task(self, message: Message):
         """Execute an assigned task"""
