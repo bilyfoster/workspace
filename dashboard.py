@@ -153,7 +153,7 @@ st.sidebar.markdown("### Mission Control v1.1.5")
 # Navigation
 page = st.sidebar.radio(
     "Navigate",
-    ["🏠 Dashboard", "💬 Chat with Agents", "🤖 Spawn Agents", "📋 Missions", 
+    ["🏠 Dashboard", "💬 Chat 1-on-1", "👥 Group Chat", "🤖 Spawn Agents", "📋 Missions", 
      "🔄 Handoffs", "🔔 Alerts", "📊 Analytics", "⚙️ System"]
 )
 
@@ -244,8 +244,8 @@ if page == "🏠 Dashboard":
                 </div>
                 """, unsafe_allow_html=True)
 
-# ============== CHAT WITH AGENTS PAGE ==============
-elif page == "💬 Chat with Agents":
+# ============== CHAT 1-ON-1 PAGE ==============
+elif page == "💬 Chat 1-on-1":
     st.markdown('<p class="main-header">💬 Chat with Your Agents</p>', unsafe_allow_html=True)
     
     data = get_dashboard_data()
@@ -398,6 +398,112 @@ elif page == "💬 Chat with Agents":
                 st.text(f"[{timestamp}] {event['type']}: {event['content'][:60]}...")
         else:
             st.text("No recent activity")
+
+# ============== GROUP CHAT PAGE ==============
+elif page == "👥 Group Chat":
+    st.markdown('<p class="main-header">👥 Group Chat with Your Squad</p>', unsafe_allow_html=True)
+    
+    data = get_dashboard_data()
+    if not data:
+        st.stop()
+    
+    if len(data['agents']) < 2:
+        st.warning("👥 You need at least 2 agents for a group chat!")
+        st.info(f"You currently have {len(data['agents'])} agent(s). Spawn more agents first.")
+        if st.button("➡️ Go to Spawn Agents"):
+            st.experimental_set_query_params(page="Spawn Agents")
+        st.stop()
+    
+    tab1, tab2 = st.tabs(["💬 Active Groups", "➕ Create New Group"])
+    
+    with tab1:
+        st.subheader("Your Group Chats")
+        
+        groups = data.get('groups', [])
+        
+        if not groups:
+            st.info("📝 No group chats yet. Create one in the 'Create New Group' tab!")
+        else:
+            for group in groups:
+                with st.expander(f"👥 {group['name']} ({group['member_count']} members)"):
+                    st.write(f"**Type:** {group['type']}")
+                    st.write(f"**Topic:** {group.get('topic', 'General discussion')}")
+                    st.write(f"**Members:** {', '.join(group['members'])}")
+                    st.write(f"**Messages:** {group['message_count']}")
+                    
+                    # Show recent messages
+                    history = st.session_state.group_chat.get_group_history(group['id'], limit=10)
+                    if history:
+                        st.markdown("**Recent Messages:**")
+                        for msg in history[-5:]:  # Show last 5
+                            sender = msg['sender']
+                            content = msg['content'][:100] + "..." if len(msg['content']) > 100 else msg['content']
+                            st.markdown(f"<small><b>{sender}:</b> {content}</small>", unsafe_allow_html=True)
+                    
+                    # Send message to group
+                    st.divider()
+                    message = st.text_input(f"Message to {group['name']}", key=f"group_msg_{group['id']}")
+                    if st.button("Send to Group 📤", key=f"send_group_{group['id']}"):
+                        if message:
+                            st.session_state.group_chat.send_to_group(
+                                group_id=group['id'],
+                                sender="user",
+                                content=message
+                            )
+                            st.success(f"Sent to {group['name']}!")
+                            time.sleep(1)
+                            st.rerun()
+    
+    with tab2:
+        st.subheader("Create New Group Chat")
+        
+        with st.form("create_group_form"):
+            group_name = st.text_input("Group Name", placeholder="e.g., Dev Team Standup")
+            
+            group_type = st.selectbox(
+                "Group Type",
+                ["discussion", "workflow", "standup", "brainstorm", "review"],
+                format_func=lambda x: {
+                    "discussion": "💬 Discussion - General chat",
+                    "workflow": "🔄 Workflow - Task coordination", 
+                    "standup": "📅 Standup - Daily updates",
+                    "brainstorm": "💡 Brainstorm - Idea generation",
+                    "review": "👀 Review - Code/design reviews"
+                }.get(x, x)
+            )
+            
+            topic = st.text_input("Topic (optional)", placeholder="What is this group for?")
+            
+            st.write("**Select Members:**")
+            agent_list = [(a['id'], f"{a['avatar']} {a['name']}") for a in data['agents']]
+            
+            selected_members = []
+            for agent_id, agent_label in agent_list:
+                if st.checkbox(agent_label, key=f"member_{agent_id}"):
+                    # Get the actual agent name from the agent_list
+                    agent_name = next((a['name'] for a in data['agents'] if a['id'] == agent_id), agent_id)
+                    selected_members.append(agent_name)
+            
+            submitted = st.form_submit_button("👥 Create Group", type="primary", use_container_width=True)
+            
+            if submitted:
+                if not group_name:
+                    st.error("❌ Please enter a group name")
+                elif len(selected_members) < 2:
+                    st.error("❌ Select at least 2 agents for a group chat")
+                else:
+                    from shared.bus.group_chat import GroupChatType
+                    group = st.session_state.group_chat.create_group(
+                        name=group_name,
+                        members=selected_members,
+                        created_by="user",
+                        chat_type=GroupChatType(group_type),
+                        topic=topic
+                    )
+                    st.success(f"✅ Created group: {group.name} with {len(selected_members)} members!")
+                    st.info("Go to '💬 Active Groups' to start chatting")
+                    time.sleep(1)
+                    st.rerun()
 
 # ============== SPAWN AGENTS PAGE ==============
 elif page == "🤖 Spawn Agents":
