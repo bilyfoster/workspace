@@ -458,10 +458,14 @@ def generate_response():
         target = manager or (data['agents'][0] if data['agents'] else None)
         
         if target:
-            add_log("info", f"Manager processing: {last_msg[:50]}...")
+            add_log("info", f"Sending to {target['name']}: {last_msg[:50]}...")
             # Get response (thinking indicator is shown in chat UI)
             # Use longer timeout for Manager with context
             timeout = 60 if target['name'] == 'Manager' else 30
+            
+            # Show that we're sending
+            add_log("info", f"Waiting up to {timeout}s for response...")
+            
             response = st.session_state.orchestrator.chat_with_agent_sync(
                 target['name'], last_msg, timeout=timeout
             )
@@ -476,19 +480,19 @@ def generate_response():
                 error_msg = f"❌ {target['name']} did not respond within {timeout}s. "
                 if target['status'] != 'idle':
                     error_msg += f"Agent status is '{target['status']}'. "
-                error_msg += "Try respawning the agent."
+                error_msg += "Check Logs & Debug for details."
                 
                 st.session_state.messages.append({
                     "role": "agent", "name": "System", "avatar": "⚠️",
                     "content": error_msg
                 })
-                add_log("error", f"{target['name']} timeout after {timeout}s")
+                add_log("error", f"{target['name']} timeout/no response after {timeout}s")
         else:
             st.session_state.messages.append({
                 "role": "agent", "name": "System", "avatar": "🤖",
-                "content": "No agents available. Use Agent Control to spawn some!"
+                "content": f"No agents available. Found {len(data['agents'])} agents but none suitable. Spawn Manager first!"
             })
-            add_log("warning", "No agents available")
+            add_log("warning", f"No suitable agents. Total: {len(data['agents'])}")
     
     st.session_state.thinking = False
     st.rerun()
@@ -883,8 +887,13 @@ def render_logs():
 
 # ==================== MAIN APP ====================
 
-# Process thinking
+# Debug: Log current state
+if st.session_state.get('debug_mode'):
+    st.write(f"DEBUG: thinking={st.session_state.thinking}, agents={len(get_data().get('agents', [])) if get_data() else 0}")
+
+# Process thinking - show inline indicator
 if st.session_state.thinking:
+    st.info("⏳ Processing your message...")
     generate_response()
 
 # Always show HUD at top
