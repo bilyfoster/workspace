@@ -1,0 +1,38 @@
+# Herbie Configuration
+
+# Ollama Settings
+ollama:
+  host: "http://herbie:11434"  # Your Ollama server
+  default_model: "qwen3.5:9b"   # Default model for agents
+  orchestrator_model: "qwen3.5:9b"  # Model for Herbie's reasoning
+  timeout: 120  # seconds
+
+# Agent System Settings
+agents:
+  # How many agents can work concurrently
+  max_concurrent: 5
+  # Keep agent objects alive (true) or spawn per-task (false)
+  always_alive: true
+  # Default temperature for agents
+  temperature: 0.7
+
+# Mission Settings
+missions:
+  # Where to store mission data
+  storage_path: "./missions"
+  # Auto-save interval (seconds)
+  auto_save: 30
+
+# Interface Settings
+interface:
+  # Default interface: cli, telegram, or api
+  default: "cli"
+  # Telegram bot token (if using telegram)
+  telegram_token: null
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "./logs/herbie.log"
+  max_size_mb: 10
+  backup_count: 5
