@@ -400,10 +400,10 @@ def generate_response():
         agent = target_agent or st.session_state.selected_agent
         add_log("info", f"Chatting with {agent['name']}: {last_msg[:50]}...")
         
-        with st.spinner(f"{agent['name']} is thinking..."):
-            response = st.session_state.orchestrator.chat_with_agent_sync(
-                agent['name'], last_msg, timeout=30
-            )
+        # Get response (thinking indicator is shown in chat UI)
+        response = st.session_state.orchestrator.chat_with_agent_sync(
+            agent['name'], last_msg, timeout=30
+        )
         
         if response:
             st.session_state.messages.append({
@@ -424,10 +424,10 @@ def generate_response():
         
         if target:
             add_log("info", f"Manager processing: {last_msg[:50]}...")
-            with st.spinner():
-                response = st.session_state.orchestrator.chat_with_agent_sync(
-                    target['name'], last_msg, timeout=30
-                )
+            # Get response (thinking indicator is shown in chat UI)
+            response = st.session_state.orchestrator.chat_with_agent_sync(
+                target['name'], last_msg, timeout=30
+            )
             
             if response:
                 st.session_state.messages.append({
