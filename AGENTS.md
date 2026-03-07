@@ -1,4 +1,4 @@
-# Workspace v1.6.1 - Agent Documentation
+# Workspace v1.6.2 - Agent Documentation
 
 ## Overview
 The Workspace is a multi-agent AI orchestration system running on macOS bare metal with Ollama local LLMs. It uses thread-based agents (not processes) for shared memory access.
@@ -65,38 +65,53 @@ Each agent has a `soul.md` file defining:
 | Sales Rep | 💼 | Lead gen, demos, CRM |
 | Product Manager | 📱 | Roadmaps, prioritization |
 
-## Dashboard Interface (v1.6.1)
+## Dashboard Interface (v1.6.2)
 
-### HUD Panel (Top - Collapsible)
+### HUD Panel (Top)
 ```
-┌─────────────────────────────────────────────────────────┐
-│  🎯 Workspace    [Agents] [Working] [Alerts] ...   [▼]  │  ← ▲/▼ to collapse
-├─────────────────────────────────────────────────────────┤
-│  ┌────┐ ┌────┐ ┌────┐ ┌────┐                          │
-│  │🎩  │ │🎨  │ │💻  │                                  │  ← Click to chat
-│  │Mgr │ │Pix │ │Code│                                  │
-│  │IDLE│ │WORK│ │IDLE│                                  │
-│  └────┘ └────┘ └────┘                                  │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  🎯 Workspace HUD    Agents  Working  Alerts  Missions  Tasks   │
+│                      5        2⚡       0🔴      1        47     │
+├─────────────────────────────────────────────────────────────────┤
+│  [🎩 Manager]  [🎨 Pixel]  [💻 Code]  [📊 Data]  [⚖️ Legal]     │  ← Click to chat
+│   🟢 IDLE       🟡 WORKING   🟢 IDLE     🟢 IDLE     🔴 ERROR    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Features:**
-- **Collapsible**: Click ▲/▼ to show/hide agent cards
-- **Metrics**: Agents, Working, Alerts, Missions, Tasks
-- **Agent Cards**: Click any to chat directly
-- **Color-coded borders**: Green=Idle, Yellow=Working, Red=Error
+### Main Pages
 
-### Main Chat Area
-- Welcome message with hints
-- Message history with user/agent bubbles
-- Thinking animation (🧠 + bouncing dots)
+**🏠 Dashboard** - Main chat interface
+- Chat with Manager or selected agent
+- Real-time message display
+- Thinking indicators
 
-### Sidebar Navigation
-- 🏠 Dashboard (main chat)
-- 🤖 Agent Control (spawn/manage agents)
-- 📋 Missions (create/execute missions)
-- 🚀 Spawn Manager
-- 🧹 Clear Chat
+**🤖 Agent Control** - Agent management
+- View active agents with details
+- Spawn individual agents or squads
+- Create custom agents from templates
+- Respawn/kill agents
+
+**📋 Missions** - Mission control
+- View all missions with progress bars
+- Execute missions with visible feedback
+- Export mission results
+- Create new missions with task assignment
+
+**📜 Logs & Debug** - Activity monitoring (NEW v1.6.2)
+```
+┌──────────────────────────────────────────────┐
+│  Filter: [All ▼]    [🧹 Clear Logs]          │
+├──────────────────────────────────────────────┤
+│  [10:23:45] Spawned Manager        (green)   │
+│  [10:24:12] Starting mission: Q1 Launch     │
+│  [10:24:15] Shuri working on: Positioning   │
+│  [10:25:01] Shuri completed task            │
+│  [10:25:30] ERROR: Code not responding      │
+└──────────────────────────────────────────────┘
+```
+- **Real-time logging** of all system activity
+- **Filter by level**: All, Info, Success, Warning, Error
+- **Debug info**: Agent details, system resources, message bus status
 2. **Chat** - 1-on-1 agent conversations (30s timeout)
 3. **Group Chat** - Multi-agent discussions
 4. **Spawn Agents** - Agent management (respawn/kill)
@@ -308,7 +323,8 @@ WORKSPACE_DATA_DIR=./data
 
 ## Version History
 
-- **v1.6.1** (Current): Collapsible HUD, fixed navigation, cleaner UI
+- **v1.6.2** (Current): Logs & Debug page, mission visibility, improved HUD
+- **v1.6.1**: Collapsible HUD, fixed navigation, cleaner UI
 - **v1.6.0**: HUD redesign, floating dashboard, chat-first interface
 - **v1.5.0**: Manager Overseer, dynamic agent creation, thinking animations
 - **v1.4.0**: Resource monitoring, individual agent controls, better UX
