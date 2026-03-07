@@ -154,7 +154,7 @@ st.sidebar.markdown("### Mission Control v1.1.5")
 page = st.sidebar.radio(
     "Navigate",
     ["🏠 Dashboard", "💬 Chat 1-on-1", "👥 Group Chat", "🤖 Spawn Agents", "📋 Missions", 
-     "🔄 Handoffs", "🔔 Alerts", "📊 Analytics", "⚙️ System"]
+     "🔄 Handoffs", "🔔 Alerts", "📊 Analytics", "📜 Logs & Debug", "⚙️ System"]
 )
 
 # ============== DASHBOARD PAGE ==============
@@ -794,6 +794,167 @@ elif page == "📊 Analytics":
     perf_data = data.get('agent_performance', [])
     if perf_data:
         st.dataframe(perf_data, use_container_width=True)
+
+# ============== LOGS & DEBUG PAGE ==============
+elif page == "📜 Logs & Debug":
+    st.markdown('<p class="main-header">📜 Logs & Debug Information</p>', unsafe_allow_html=True)
+    
+    data = get_dashboard_data()
+    if not data:
+        st.stop()
+    
+    tab1, tab2, tab3, tab4 = st.tabs(["❌ Agent Errors", "📡 Recent Events", "📋 Agent Details", "🔧 Debug Tools"])
+    
+    with tab1:
+        st.subheader("Agent Errors & Issues")
+        
+        # Check for agents with error status
+        error_agents = [a for a in data['agents'] if a['status'] == 'error']
+        offline_agents = [a for a in data['agents'] if a['status'] == 'offline']
+        
+        if error_agents:
+            st.error(f"⚠️ {len(error_agents)} agent(s) in ERROR state:")
+            for agent in error_agents:
+                with st.expander(f"🔴 {agent['avatar']} {agent['name']} - ERROR"):
+                    st.write(f"**ID:** {agent['id']}")
+                    st.write(f"**Role:** {agent['role']}")
+                    st.write(f"**Last Task:** {agent.get('current_task', 'None')}")
+                    st.write(f"**Thread Alive:** {agent.get('thread_alive', False)}")
+                    
+                    # Get recent activity for this agent
+                    activity = st.session_state.tracker.get_agent_activity(agent['id'], limit=10)
+                    if activity:
+                        st.write("**Recent Activity:**")
+                        for event in activity:
+                            if event['type'] in ['task_failed', 'error']:
+                                st.error(f"[{event['timestamp']}] {event['content'][:200]}")
+        else:
+            st.success("✅ No agents in error state")
+        
+        if offline_agents:
+            st.warning(f"⚠️ {len(offline_agents)} agent(s) OFFLINE:")
+            for agent in offline_agents:
+                st.write(f"  - {agent['avatar']} {agent['name']}")
+        
+        st.divider()
+        
+        # Show failed tasks
+        st.subheader("Failed Tasks")
+        failed_events = [e for e in st.session_state.tracker.get_recent_events(100) 
+                        if e['type'] == 'task_failed']
+        
+        if failed_events:
+            for event in failed_events[:10]:
+                st.error(f"**{event['from_agent']}**: {event['content'][:200]}")
+        else:
+            st.success("✅ No failed tasks recently")
+    
+    with tab2:
+        st.subheader("Recent Activity Log")
+        
+        # Filters
+        col1, col2 = st.columns(2)
+        with col1:
+            event_filter = st.multiselect(
+                "Filter by event type",
+                ['all', 'agent_online', 'agent_offline', 'task_started', 'task_completed', 
+                 'task_failed', 'agent_message', 'error'],
+                default=['all']
+            )
+        with col2:
+            limit = st.slider("Number of events", 10, 200, 50)
+        
+        events = st.session_state.tracker.get_recent_events(limit)
+        
+        if 'all' not in event_filter:
+            events = [e for e in events if e['type'] in event_filter]
+        
+        # Display with color coding
+        for event in events:
+            timestamp = event['timestamp'].split('T')[1][:12] if 'T' in event['timestamp'] else event['timestamp'][:12]
+            
+            # Color code by type
+            if event['type'] == 'task_failed' or event['type'] == 'error':
+                color = "#ffcccc"
+                icon = "❌"
+            elif event['type'] == 'agent_online':
+                color = "#ccffcc"
+                icon = "🟢"
+            elif event['type'] == 'task_completed':
+                color = "#ccffff"
+                icon = "✅"
+            else:
+                color = "#f0f0f0"
+                icon = "•"
+            
+            st.markdown(f"""
+            <div style="background-color: {color}; padding: 8px; margin: 4px 0; border-radius: 4px; font-size: 0.9em;">
+                <code>[{timestamp}]</code> {icon} <b>{event['type']}</b> | 
+                {event['from_agent']} → {event.get('to_agent', 'broadcast')}: 
+                {event['content'][:100]}...
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with tab3:
+        st.subheader("Detailed Agent Information")
+        
+        for agent in data['agents']:
+            with st.expander(f"{agent['avatar']} {agent['name']} ({agent['status']})"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**ID:** `{agent['id']}`")
+                    st.write(f"**Role:** {agent['role']}")
+                    st.write(f"**Status:** {agent['status']}")
+                    st.write(f"**Model:** {agent.get('model', 'Default')}")
+                with col2:
+                    st.write(f"**Tasks Completed:** {agent['tasks_completed']}")
+                    st.write(f"**Thread Alive:** {'✅ Yes' if agent.get('thread_alive') else '❌ No'}")
+                    st.write(f"**Started:** {agent['started_at']}")
+                
+                if agent.get('current_task'):
+                    st.info(f"📝 Current Task: {agent['current_task']}")
+                
+                # Check agent's message queue
+                if agent['id'] in st.session_state.orchestrator.bus._agent_queues:
+                    queue = st.session_state.orchestrator.bus._agent_queues[agent['id']]
+                    if isinstance(queue, list):
+                        st.write(f"**Pending Messages:** {len(queue)}")
+                        for msg in queue:
+                            st.text(f"  - {msg.type}")
+    
+    with tab4:
+        st.subheader("🔧 Debug Tools")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Message Bus Status**")
+            bus = st.session_state.orchestrator.bus
+            st.write(f"Registered agents: {len(bus._agent_queues)}")
+            st.write(f"Total messages: {len(bus._message_history)}")
+            
+            if st.button("🔄 Refresh All Data"):
+                st.rerun()
+        
+        with col2:
+            st.write("**Test Functions**")
+            
+            if st.button("🧪 Test MessageBus"):
+                from shared.bus.message_bus import Message, MessageType
+                test_msg = Message.create(
+                    MessageType.SYSTEM_MESSAGE,
+                    sender="user",
+                    payload={"content": "Test message"}
+                )
+                st.success(f"✅ MessageBus working! Created message: {test_msg.id}")
+            
+            if st.button("📊 Show System Stats"):
+                st.json({
+                    "agents": len(data['agents']),
+                    "messages": len(st.session_state.tracker.events),
+                    "missions": len(data['missions']),
+                    "ollama_connected": data['system']['ollama_connected']
+                })
 
 # ============== SYSTEM PAGE ==============
 elif page == "⚙️ System":
