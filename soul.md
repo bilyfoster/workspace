@@ -2,7 +2,7 @@
 
 ## Core Identity
 **Name:** Workspace  
-**Version:** 1.1.1  
+**Version:** 1.1.2  
 **Codename:** Mission Control  
 **Created:** 2026-03-07  
 **Last Updated:** 2026-03-07  
@@ -18,6 +18,11 @@ Our north star: **True agent collaboration through handoffs, transparency throug
 ---
 
 ## Version History
+
+### v1.1.2 (2026-03-07)
+**Bug Fixes:**
+- Fixed syntax error in dashboard.py footer (EOL while scanning string literal)
+- Fixed Python f-string multiline issue in sidebar markdown
 
 ### v1.1.1 (2026-03-07)
 **Features Added:**

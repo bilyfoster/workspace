@@ -825,14 +825,14 @@ elif page == "⚙️ System":
 # Version Footer (always shown)
 st.sidebar.divider()
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"**Workspace v1.1.0** 🎯  
-Running on Herbie  
-{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+footer_text = "**Workspace v1.1.0** 🎯  \nRunning on Herbie  \n" + datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+st.sidebar.markdown(footer_text)
 
 # Fixed footer with version
-st.markdown(f"""
+version_footer = """
 <div class="version-footer">
     <b>Workspace v1.1.0</b> | Built for Herbie | 
     <a href="https://github.com/bilyfoster/workspace" target="_blank">GitHub</a>
 </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(version_footer, unsafe_allow_html=True)
