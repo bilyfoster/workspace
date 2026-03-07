@@ -595,6 +595,10 @@ def generate_response():
 
 def render_agent_control():
     """Agent management page"""
+    if st.button("← Back to Dashboard", type="secondary"):
+        st.session_state.page = "dashboard"
+        st.rerun()
+    
     st.header("🤖 Agent Control")
     
     data = get_data()
@@ -722,6 +726,10 @@ def render_agent_control():
 
 def render_missions():
     """Missions page"""
+    if st.button("← Back to Dashboard", type="secondary"):
+        st.session_state.page = "dashboard"
+        st.rerun()
+    
     st.header("📋 Missions")
     
     data = get_data()
