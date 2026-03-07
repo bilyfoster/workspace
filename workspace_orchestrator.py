@@ -65,7 +65,7 @@ class WorkspaceOrchestrator:
     
     def __init__(self):
         self.name = "Workspace"
-        self.version = "1.1.3"
+        self.version = "1.1.5"
         
         # Components
         self.ollama = OllamaClient(config.ollama_host)
