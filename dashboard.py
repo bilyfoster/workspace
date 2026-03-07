@@ -229,6 +229,19 @@ def render_hud():
     missions = len([m for m in data['missions'] if m['status'] == 'active'])
     tasks = sum(a['tasks_completed'] for a in agents)
     
+    # Get health summary
+    health = data.get('health_summary', {})
+    stuck = health.get('stuck', 0)
+    
+    # Show health alerts banner if there are issues
+    if errors > 0 or stuck > 0:
+        alert_msg = []
+        if errors > 0:
+            alert_msg.append(f"{errors} agent(s) in error state")
+        if stuck > 0:
+            alert_msg.append(f"{stuck} agent(s) stuck")
+        st.error(f"⚠️ Health Alert: {', '.join(alert_msg)}. Check Logs & Debug for details.")
+    
     # HUD Container
     with st.container():
         st.markdown("<div class='hud-box'>", unsafe_allow_html=True)
@@ -244,7 +257,8 @@ def render_hud():
         with col3:
             st.metric("Working", working, delta=None)
         with col4:
-            st.metric("Alerts", errors, delta=None)
+            alert_delta = f"🔴 {errors}" if errors > 0 else None
+            st.metric("Alerts", errors, delta=alert_delta, delta_color="inverse")
         with col5:
             st.metric("Missions", missions, delta=None)
         with col6:
@@ -258,14 +272,31 @@ def render_hud():
             cols = st.columns(min(len(agents), 6))
             for idx, agent in enumerate(agents):
                 with cols[idx % 6]:
-                    status_color = "🟢" if agent['status'] == 'idle' else "🟡" if agent['status'] == 'working' else "🔴"
+                    # Get health state for this agent
+                    agent_health = health.get('agents', {}).get(agent['id'], {})
+                    health_state = agent_health.get('state', 'idle')
+                    
+                    # Color based on health, not just status
+                    if health_state == 'error' or agent['status'] == 'error':
+                        status_color = "🔴"
+                        btn_type = "primary"
+                    elif health_state == 'stuck':
+                        status_color = "⏱️"
+                        btn_type = "primary"
+                    elif agent['status'] == 'working':
+                        status_color = "🟡"
+                        btn_type = "primary"
+                    else:
+                        status_color = "🟢"
+                        btn_type = "secondary"
+                    
                     task_preview = agent.get('current_task', '')[:15] + "..." if agent.get('current_task') else "Idle"
                     
                     if st.button(
                         f"{agent['avatar']} {agent['name']}\n{status_color} {agent['status']}\n{task_preview}",
                         key=f"hud_agent_{agent['id']}",
                         use_container_width=True,
-                        type="secondary" if agent['status'] == 'idle' else "primary"
+                        type=btn_type
                     ):
                         st.session_state.selected_agent = agent
                         add_log("info", f"Selected agent: {agent['name']}")
@@ -468,18 +499,47 @@ def render_agent_control():
         if not data['agents']:
             st.info("No agents running")
         else:
+            # Get health data
+            health = data.get('health_summary', {})
+            health_agents = health.get('agents', {})
+            
             st.write(f"**{len(data['agents'])} agents active**")
             
+            # Show health issues summary
+            stuck_agents = [aid for aid, h in health_agents.items() if h.get('state') == 'stuck']
+            error_agents = [aid for aid, h in health_agents.items() if h.get('state') == 'error']
+            
+            if stuck_agents or error_agents:
+                st.warning(f"⚠️ Health Issues: {len(stuck_agents)} stuck, {len(error_agents)} errors")
+            
             for agent in data['agents']:
-                with st.expander(f"{agent['avatar']} {agent['name']} - {agent['status']}"):
+                agent_health = health_agents.get(agent['id'], {})
+                health_state = agent_health.get('state', 'unknown')
+                
+                # Show health state in header
+                status_display = agent['status']
+                if health_state == 'stuck':
+                    status_display += " ⏱️ STUCK"
+                elif health_state == 'error':
+                    status_display += " 🔴 ERROR"
+                
+                with st.expander(f"{agent['avatar']} {agent['name']} - {status_display}"):
                     col1, col2, col3 = st.columns([3, 1, 1])
                     with col1:
                         st.write(f"**ID:** {agent['id']}")
                         st.write(f"**Role:** {agent['role']}")
+                        st.write(f"**Health State:** `{health_state}`")
                         st.write(f"**Tasks Completed:** {agent['tasks_completed']}")
                         if agent.get('current_task'):
                             st.write(f"**Current Task:** {agent['current_task']}")
+                            # Show task duration if working
+                            if agent['status'] == 'working':
+                                st.write(f"**Time in State:** {agent_health.get('time_in_state', 'unknown')}")
                         st.write(f"**Thread Alive:** {'Yes' if agent.get('thread_alive') else 'No'}")
+                        if agent_health.get('consecutive_errors', 0) > 0:
+                            st.error(f"**Consecutive Errors:** {agent_health['consecutive_errors']}")
+                        if agent_health.get('total_restarts', 0) > 0:
+                            st.info(f"**Total Restarts:** {agent_health['total_restarts']}")
                     with col2:
                         if st.button("🔄 Respawn", key=f"respawn_{agent['id']}"):
                             add_log("info", f"Respawning {agent['name']}")
@@ -490,6 +550,19 @@ def render_agent_control():
                                 resource_monitor.register_agent(result.id, result.name)
                                 add_log("success", f"Respawned {agent['name']}")
                             st.rerun()
+                        
+                        # Troubleshoot button for problematic agents
+                        if health_state in ['error', 'stuck']:
+                            if st.button("🔧 Troubleshoot", key=f"troubleshoot_{agent['id']}"):
+                                add_log("info", f"Troubleshooting {agent['name']}")
+                                st.info(f"🛠️ Troubleshooting {agent['name']}...")
+                                st.write("**Diagnostic Steps:**")
+                                st.write("1. ✓ Check thread status")
+                                st.write(f"   - Thread alive: {agent.get('thread_alive', False)}")
+                                st.write("2. ✓ Review health state")
+                                st.write(f"   - State: {health_state}")
+                                st.write(f"   - Errors: {agent_health.get('consecutive_errors', 0)}")
+                                st.write("3. → Recommended action: Respawn")
                     with col3:
                         if st.button("🛑 Kill", key=f"kill_{agent['id']}"):
                             add_log("info", f"Killing {agent['name']}")
@@ -711,6 +784,26 @@ def render_logs():
     # System status
     data = get_data()
     if data:
+        # Health summary
+        health = data.get('health_summary', {})
+        
+        st.subheader("🏥 Health Status")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.metric("Total", health.get('total_agents', 0))
+        with col2:
+            st.metric("Healthy", health.get('healthy', 0))
+        with col3:
+            st.metric("Working", health.get('working', 0))
+        with col4:
+            stuck = health.get('stuck', 0)
+            st.metric("Stuck", stuck, delta=f"⚠️ {stuck}" if stuck > 0 else None, delta_color="inverse")
+        with col5:
+            errors = health.get('error', 0)
+            st.metric("Errors", errors, delta=f"🔴 {errors}" if errors > 0 else None, delta_color="inverse")
+        
+        st.divider()
+        
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Agents", len(data['agents']))
