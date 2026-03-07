@@ -218,7 +218,7 @@ def add_log(level: str, message: str):
         st.session_state.logs = st.session_state.logs[-100:]
 
 def render_hud():
-    """Render the HUD panel"""
+    """Render the HUD panel - simplified clean version"""
     data = get_data()
     if not data:
         return
@@ -242,67 +242,58 @@ def render_hud():
             alert_msg.append(f"{stuck} agent(s) stuck")
         st.error(f"⚠️ Health Alert: {', '.join(alert_msg)}. Check Logs & Debug for details.")
     
-    # HUD Container
-    with st.container():
-        st.markdown("<div class='hud-box'>", unsafe_allow_html=True)
-        
-        # Header row with metrics
-        col1, col2, col3, col4, col5, col6 = st.columns([2, 1, 1, 1, 1, 1])
-        
-        with col1:
-            st.markdown("<div class='hud-title'>🎯 Workspace HUD</div>", unsafe_allow_html=True)
-        
-        with col2:
-            st.metric("Agents", len(agents), delta=None)
-        with col3:
-            st.metric("Working", working, delta=None)
-        with col4:
-            alert_delta = f"🔴 {errors}" if errors > 0 else None
-            st.metric("Alerts", errors, delta=alert_delta, delta_color="inverse")
-        with col5:
-            st.metric("Missions", missions, delta=None)
-        with col6:
-            st.metric("Tasks", tasks, delta=None)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Agent cards row
-        if agents:
-            st.write("**Click an agent to chat:**")
-            cols = st.columns(min(len(agents), 6))
-            for idx, agent in enumerate(agents):
-                with cols[idx % 6]:
-                    # Get health state for this agent
-                    agent_health = health.get('agents', {}).get(agent['id'], {})
-                    health_state = agent_health.get('state', 'idle')
-                    
-                    # Color based on health, not just status
-                    if health_state == 'error' or agent['status'] == 'error':
-                        status_color = "🔴"
-                        btn_type = "primary"
-                    elif health_state == 'stuck':
-                        status_color = "⏱️"
-                        btn_type = "primary"
-                    elif agent['status'] == 'working':
-                        status_color = "🟡"
-                        btn_type = "primary"
-                    else:
-                        status_color = "🟢"
-                        btn_type = "secondary"
-                    
-                    task_preview = agent.get('current_task', '')[:15] + "..." if agent.get('current_task') else "Idle"
-                    
-                    if st.button(
-                        f"{agent['avatar']} {agent['name']}\n{status_color} {agent['status']}\n{task_preview}",
-                        key=f"hud_agent_{agent['id']}",
-                        use_container_width=True,
-                        type=btn_type
-                    ):
-                        st.session_state.selected_agent = agent
-                        add_log("info", f"Selected agent: {agent['name']}")
-                        st.rerun()
-        else:
-            st.info("🤖 No agents active. Use sidebar to spawn agents.")
+    # HUD Header with metrics
+    st.subheader("🎯 Workspace HUD")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.metric("Agents", len(agents))
+    with col2:
+        st.metric("Working", working)
+    with col3:
+        alert_delta = f"🔴 {errors}" if errors > 0 else None
+        st.metric("Alerts", errors, delta=alert_delta, delta_color="inverse")
+    with col4:
+        st.metric("Missions", missions)
+    with col5:
+        st.metric("Tasks", tasks)
+    
+    st.divider()
+    
+    # Agent cards row
+    if agents:
+        st.write("**Click an agent to chat:**")
+        cols = st.columns(min(len(agents), 6))
+        for idx, agent in enumerate(agents):
+            with cols[idx % 6]:
+                # Get health state for this agent
+                agent_health = health.get('agents', {}).get(agent['id'], {})
+                health_state = agent_health.get('state', 'idle')
+                
+                # Build status line
+                if health_state == 'error' or agent['status'] == 'error':
+                    status_icon = "🔴 ERROR"
+                    btn_type = "primary"
+                elif health_state == 'stuck':
+                    status_icon = "⏱️ STUCK"
+                    btn_type = "primary"
+                elif agent['status'] == 'working':
+                    status_icon = "⚡ Working"
+                    btn_type = "primary"
+                else:
+                    status_icon = "☕ Idle"
+                    btn_type = "secondary"
+                
+                task_preview = agent.get('current_task', '')[:12] + "..." if agent.get('current_task') else "Ready"
+                
+                btn_label = f"**{agent['avatar']} {agent['name']}**  \n{status_icon}  \n_{task_preview}_"
+                
+                if st.button(btn_label, key=f"hud_agent_{agent['id']}", use_container_width=True, type=btn_type):
+                    st.session_state.selected_agent = agent
+                    add_log("info", f"Selected agent: {agent['name']}")
+                    st.rerun()
+    else:
+        st.info("🤖 No agents active. Use sidebar to spawn agents.")
 
 def render_dashboard():
     """Main dashboard with chat"""
@@ -334,10 +325,23 @@ def render_dashboard():
                 name = msg.get('name', 'Agent')
                 st.write(f"**{avatar} {name}:** {msg['content']}")
     
-    # Thinking indicator
+    # Thinking indicator with animation
     if st.session_state.thinking:
         with st.chat_message("assistant"):
-            st.write("🧠 Thinking...")
+            st.markdown("""
+            <div style="display: flex; align-items: center; gap: 8px; color: #667eea;">
+                <span>🧠 Thinking</span>
+                <span style="animation: pulse 1s infinite;">●</span>
+                <span style="animation: pulse 1s infinite 0.2s;">●</span>
+                <span style="animation: pulse 1s infinite 0.4s;">●</span>
+            </div>
+            <style>
+                @keyframes pulse {
+                    0%, 100% { opacity: 0.3; }
+                    50% { opacity: 1; }
+                }
+            </style>
+            """, unsafe_allow_html=True)
     
     # Input
     message = st.chat_input("Message your team...")
