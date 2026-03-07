@@ -2,7 +2,7 @@
 
 ## Core Identity
 **Name:** Workspace  
-**Version:** 1.1.4  
+**Version:** 1.1.5  
 **Codename:** Mission Control  
 **Created:** 2026-03-07  
 **Last Updated:** 2026-03-07  
@@ -18,6 +18,17 @@ Our north star: **True agent collaboration through handoffs, transparency throug
 ---
 
 ## Version History
+
+### v1.1.5 (2026-03-07)
+**UI/UX Improvements:**
+- New "Chat with Agents" page for direct agent interaction
+- Visual chat interface with message history
+- Quick prompt buttons for common tasks
+- Improved Spawn Agents page with visual cards
+- Progress bars for squad spawning
+- Better status indicators and visual feedback
+- Simplified navigation (7 clear tabs)
+- Clear empty states with action buttons
 
 ### v1.1.4 (2026-03-07)
 **Critical Bug Fix:**
