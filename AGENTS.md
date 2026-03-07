@@ -130,6 +130,30 @@ orchestrator.execute_mission_parallel(mission_id)
 # Runs all pending tasks concurrently with ThreadPoolExecutor
 ```
 
+### Agent Health Monitor (NEW v1.7.0)
+
+The Manager now has a **heartbeat** that monitors all agents:
+
+**Health States:**
+- ✅ **Healthy** - Agent functioning normally
+- ☕ **Idle** - Agent ready for work
+- ⚡ **Working** - Agent processing task
+- ⏱️ **Stuck** - Working >5 minutes (potential issue)
+- 🔴 **Error** - Agent encountered error
+- 💤 **Offline** - Agent not running
+
+**Auto-Remediation:**
+- Detects stuck agents (working too long)
+- Auto-respawns agents on critical errors (up to 2 retries)
+- Logs all health events for visibility
+- Suggests troubleshooting actions
+
+**Dashboard Integration:**
+- HUD shows alert banner when issues detected
+- Agent cards show health state with colors
+- Agent Control page shows detailed diagnostics
+- Logs & Debug page tracks health history
+
 ### HUD Dashboard (v1.6.1)
 - **Collapsible panel** - Save space when needed
 - **Real-time metrics** - Agent count, working, alerts, missions, tasks
@@ -323,7 +347,8 @@ WORKSPACE_DATA_DIR=./data
 
 ## Version History
 
-- **v1.6.2** (Current): Logs & Debug page, mission visibility, improved HUD
+- **v1.7.0** (Current): Agent Health Monitor with auto-remediation
+- **v1.6.2**: Logs & Debug page, mission visibility, improved HUD
 - **v1.6.1**: Collapsible HUD, fixed navigation, cleaner UI
 - **v1.6.0**: HUD redesign, floating dashboard, chat-first interface
 - **v1.5.0**: Manager Overseer, dynamic agent creation, thinking animations
