@@ -272,6 +272,7 @@ class WorkspaceOrchestrator:
         agent_name: str,
         task_description: str,
         mission_id: Optional[str] = None,
+        task_id: Optional[str] = None,
         context: Optional[Dict] = None
     ) -> bool:
         """
@@ -281,6 +282,7 @@ class WorkspaceOrchestrator:
             agent_name: Name of agent (e.g., "hunter")
             task_description: What to do
             mission_id: Optional mission ID for tracking
+            task_id: Optional task ID (for mission task tracking)
             context: Additional context
         """
         # Find running agent
@@ -294,16 +296,16 @@ class WorkspaceOrchestrator:
             logger.error(f"Agent {agent_name} not found or offline")
             return False
         
-        # Create task message
-        task_id = f"task-{int(time.time())}"
-        correlation_id = f"{mission_id}:{task_id}" if mission_id else task_id
+        # Use provided task_id or generate one
+        execution_task_id = task_id or f"task-{int(time.time())}"
+        correlation_id = f"{mission_id}:{execution_task_id}" if mission_id else execution_task_id
         
         message = Message.create(
             MessageType.TASK_ASSIGNED,
             sender="orchestrator",
             recipient=agent.id,
             payload={
-                "id": task_id,
+                "id": execution_task_id,
                 "description": task_description,
                 "context": context or {},
                 "assigned_at": datetime.now().isoformat()

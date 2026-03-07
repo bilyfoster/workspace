@@ -706,7 +706,7 @@ elif page == "📋 Missions":
                                     agent_list = [a['name'] for a in data['agents'] if a['status'] == 'idle']
                                     if agent_list and st.button("Assign & Run", key=f"run_{task.id}"):
                                         st.session_state.orchestrator.assign_task(
-                                            agent_list[0], task.description, mission['id']
+                                            agent_list[0], task.description, mission['id'], task.id
                                         )
                                         st.success(f"Assigned to {agent_list[0]}")
                                         time.sleep(1)
