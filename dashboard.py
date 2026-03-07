@@ -381,7 +381,7 @@ def generate_response():
                 result = st.session_state.orchestrator.spawn_agent(name)
                 if result:
                     resource_monitor.register_agent(result.id, result.name)
-                    spawned.append(name.title()))
+                    spawned.append(name.title())
                     add_log("success", f"Spawned {name}")
         
         if spawned:
