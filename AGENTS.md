@@ -1,4 +1,4 @@
-# Workspace v1.5.0 - Agent Documentation
+# Workspace v1.6.0 - Agent Documentation
 
 ## Overview
 The Workspace is a multi-agent AI orchestration system running on macOS bare metal with Ollama local LLMs. It uses thread-based agents (not processes) for shared memory access.
@@ -65,21 +65,38 @@ Each agent has a `soul.md` file defining:
 | Sales Rep | 💼 | Lead gen, demos, CRM |
 | Product Manager | 📱 | Roadmaps, prioritization |
 
-## Dashboard Pages
+## Dashboard Interface (v1.6.0)
 
-1. **🎩 Manager** - **Primary overseer interface** (NEW v1.5.0)
-   - Live team status with thinking indicators
-   - Chat with Manager for high-level control
-   - Create new agents dynamically
-   - Quick squad spawning
-   
-2. **Dashboard** - System overview
-3. **Chat** - Individual agent conversations
-4. **Agents** - Individual agent management
-5. **Missions** - Task board
-6. **Analytics** - Resource charts
-7. **Logs** - System logs
-8. **System** - Configuration
+The dashboard is now a **HUD-style interface** with:
+
+### Floating HUD Panel (Top)
+Glassmorphism panel showing:
+- **Metrics Row**: Agents | Working | Alerts | Missions | Tasks Done
+- **Agent Mini-Cards**: Scrollable row of active agents
+  - 🟢 Green border = Idle
+  - 🟡 Yellow border + glow = Working
+  - 🔴 Red border = Error
+  - Click any card to chat directly with that agent
+
+### Main Chat Area (Center)
+- Scrollable conversation history
+- Welcome message when empty
+- Thinking indicator (🧠 + bouncing dots)
+- System messages for errors/info
+
+### Input Bar (Bottom - Fixed)
+- Always visible at bottom
+- Rounded text input
+- Send button with gradient
+- Auto-scrolls chat on new messages
+
+### Sidebar (Collapsed)
+Access via hamburger menu (top left):
+- Spawn Manager
+- Quick squad spawning
+- Full agent control
+- Create new agent
+- Clear chat
 2. **Chat** - 1-on-1 agent conversations (30s timeout)
 3. **Group Chat** - Multi-agent discussions
 4. **Spawn Agents** - Agent management (respawn/kill)
@@ -90,7 +107,7 @@ Each agent has a `soul.md` file defining:
 9. **Logs** - Debug and error logs
 10. **System** - Settings and configuration
 
-## Key Features (v1.5.0)
+## Key Features (v1.6.0)
 
 ### Parallel Task Execution
 ```python
@@ -98,7 +115,14 @@ orchestrator.execute_mission_parallel(mission_id)
 # Runs all pending tasks concurrently with ThreadPoolExecutor
 ```
 
-### Manager Overseer (NEW)
+### HUD Dashboard (NEW v1.6.0)
+- **Floating glassmorphism panel** at top of screen
+- **Real-time metrics**: Agent count, working, alerts, missions, tasks
+- **Agent mini-cards**: Color-coded by status, click to chat
+- **Always-visible overview**: Know team state at a glance
+- **Dark theme** with blur effects
+
+### Manager Overseer
 - **Manager Agent** (🎩) as your primary point of contact
 - Full visibility into all agent activities
 - Natural language commands: "Who's working on what?"
@@ -285,7 +309,8 @@ WORKSPACE_DATA_DIR=./data
 
 ## Version History
 
-- **v1.5.0** (Current): Manager Overseer, dynamic agent creation, thinking animations
+- **v1.6.0** (Current): HUD redesign, floating dashboard, chat-first interface
+- **v1.5.0**: Manager Overseer, dynamic agent creation, thinking animations
 - **v1.4.0**: Resource monitoring, individual agent controls, better UX
 - **v1.3.0**: MVP Complete - Parallel execution, exports, handoffs
 - **v1.2.0**: Thread-based agents, persistent chat
