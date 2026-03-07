@@ -314,20 +314,20 @@ def render_dashboard():
     # Chat container
     st.markdown("---")
     
-    # Display messages
+    # Display messages - use explicit avatars to prevent default cycling icons
     for msg in st.session_state.messages:
         if msg['role'] == 'user':
-            with st.chat_message("user"):
+            with st.chat_message("user", avatar="👤"):
                 st.write(msg['content'])
         else:
-            with st.chat_message("assistant"):
-                avatar = msg.get('avatar', '🤖')
+            avatar = msg.get('avatar', '🤖')
+            with st.chat_message("assistant", avatar=avatar):
                 name = msg.get('name', 'Agent')
-                st.write(f"**{avatar} {name}:** {msg['content']}")
+                st.write(f"**{name}:** {msg['content']}")
     
-    # Thinking indicator with animation
+    # Thinking indicator with animation - use logo avatar to prevent cycling people
     if st.session_state.thinking:
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar="🎯"):
             st.markdown("""
             <div style="display: flex; align-items: center; gap: 8px; color: #667eea;">
                 <span>🧠 Thinking</span>
