@@ -280,6 +280,12 @@ class AgentHealthMonitor:
         """Get health record for specific agent"""
         return self.health_records.get(agent_id)
     
+    def unregister_agent(self, agent_id: str):
+        """Remove agent from monitoring"""
+        with self._lock:
+            if agent_id in self.health_records:
+                del self.health_records[agent_id]
+    
     def should_auto_respawn(self, agent_id: str) -> bool:
         """Check if agent should be auto-respawned"""
         record = self.health_records.get(agent_id)

@@ -1,0 +1,21 @@
+{
+  "agent_id": "manager-1772926282",
+  "agent_name": "Manager",
+  "updated_at": "2026-03-07T16:31:36.136184",
+  "messages": [
+    {
+      "role": "user",
+      "content": "List all active agents",
+      "timestamp": "2026-03-07T16:31:26.031475",
+      "agent_name": "Manager",
+      "agent_id": "manager-1772926282"
+    },
+    {
+      "role": "agent",
+      "content": "**Active Agents Report:**\n\n| Agent | Status | Thread | Current Activity |\n|-------|--------|--------|------------------|\n| \ud83d\udfe2 **Manager** | Idle | Alive | Monitoring workspace |\n\n**Total Active Agents:** 1\n\n---\n\n**Note:** The remaining missions (Landing Page, Test Email, Q1 Campaign) are currently pending agent assignment. No specialized agents have been spawned yet.\n\nWould you like me to:\n- Spawn agents for these missions?\n- Review the available roster of existing agent types?\n- Create new specialized roles if needed?\n\nLet me know how you'd like to proceed! \ud83d\udccb",
+      "timestamp": "2026-03-07T16:31:36.136178",
+      "agent_name": "Manager",
+      "agent_id": "manager-1772926282"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "agent_id": "manager-1772924581",
+  "agent_name": "Manager",
+  "updated_at": "2026-03-07T16:03:14.016058",
+  "messages": [
+    {
+      "role": "user",
+      "content": "are you online?",
+      "timestamp": "2026-03-07T16:03:04.965285",
+      "agent_name": "Manager",
+      "agent_id": "manager-1772924581"
+    },
+    {
+      "role": "agent",
+      "content": "Yes, I'm online and ready! \ud83d\udfe2\n\n**Current Workspace Status:**\n- **Active Agents:** 1 (Manager - idle)\n- **Active Missions:** 3\n  - \ud83d\udccb Landing Page Project: 1/2 tasks complete\n  - \ud83d\udccb Test Email: 0/1 tasks pending\n  - \ud83d\udccb Q1 Product Launch Campaign: 0/2 tasks pending\n\n**Observation:** Only the Manager is currently active. The other missions are waiting for specialized agents to be spawned and assigned.\n\nWould you like me to:\n1. **Spawn agents** for these pending tasks?\n2. **Pause certain missions** while we focus on priority work?\n3. **Wait for your direction** on next steps?\n\nLet me know how you'd like to proceed!",
+      "timestamp": "2026-03-07T16:03:14.016052",
+      "agent_name": "Manager",
+      "agent_id": "manager-1772924581"
+    }
+  ]
+}
