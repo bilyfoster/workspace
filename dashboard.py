@@ -302,22 +302,31 @@ elif page == "💬 Chat with Agents":
             if st.button(prompt, key=f"quick_{prompt}"):
                 if selected_agent_id not in st.session_state.chat_history:
                     st.session_state.chat_history[selected_agent_id] = []
+                
+                # Add user message
                 st.session_state.chat_history[selected_agent_id].append({
                     "role": "user", 
                     "content": prompt,
                     "timestamp": datetime.now().isoformat()
                 })
                 
-                # Send to agent
-                success = st.session_state.orchestrator.chat_with_agent(
-                    selected_agent['name'], 
-                    prompt
-                )
+                # Send and get response
+                with st.spinner(f"{selected_agent['name']} is thinking..."):
+                    response = st.session_state.orchestrator.chat_with_agent_sync(
+                        selected_agent['name'], 
+                        prompt,
+                        timeout=30
+                    )
                 
-                if success:
-                    st.success("Message sent! Check Activity Feed for response.")
+                if response:
+                    st.session_state.chat_history[selected_agent_id].append({
+                        "role": "agent",
+                        "content": response,
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    st.rerun()
                 else:
-                    st.error("Failed to send message")
+                    st.error("❌ No response from agent")
     
     with col2:
         st.subheader("💬 Conversation")
@@ -355,23 +364,32 @@ elif page == "💬 Chat with Agents":
             submitted = st.form_submit_button("Send 📤", use_container_width=True)
             
             if submitted and message:
-                # Add to history
+                # Add user message to history
                 st.session_state.chat_history[selected_agent_id].append({
                     "role": "user",
                     "content": message,
                     "timestamp": datetime.now().isoformat()
                 })
                 
-                # Send to agent
-                success = st.session_state.orchestrator.chat_with_agent(
-                    selected_agent['name'],
-                    message
-                )
+                # Show thinking spinner
+                with st.spinner(f"{selected_agent['name']} is thinking..."):
+                    # Send to agent and wait for response (sync)
+                    response = st.session_state.orchestrator.chat_with_agent_sync(
+                        selected_agent['name'],
+                        message,
+                        timeout=30
+                    )
                 
-                if success:
-                    st.success("Sent! Agent is thinking...")
+                if response:
+                    # Add agent response to history
+                    st.session_state.chat_history[selected_agent_id].append({
+                        "role": "agent",
+                        "content": response,
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    st.rerun()
                 else:
-                    st.error("Failed to send. Is the agent still running?")
+                    st.error("❌ No response from agent (timeout or error)")
         
         # Show recent activity for this agent
         st.divider()

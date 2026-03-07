@@ -2,7 +2,7 @@
 
 ## Core Identity
 **Name:** Workspace  
-**Version:** 1.1.5  
+**Version:** 1.1.6  
 **Codename:** Mission Control  
 **Created:** 2026-03-07  
 **Last Updated:** 2026-03-07  
@@ -18,6 +18,13 @@ Our north star: **True agent collaboration through handoffs, transparency throug
 ---
 
 ## Version History
+
+### v1.1.6 (2026-03-07)
+**Critical Bug Fix:**
+- Fixed agent chat - responses now appear in UI
+- Added synchronous chat method (chat_with_agent_sync)
+- Chat waits for agent response with spinner
+- Fixed async message loss issue
 
 ### v1.1.5 (2026-03-07)
 **UI/UX Improvements:**

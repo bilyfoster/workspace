@@ -319,7 +319,7 @@ class WorkspaceOrchestrator:
         return sent
     
     def chat_with_agent(self, agent_name: str, message: str) -> bool:
-        """Send a chat message to an agent"""
+        """Send a chat message to an agent (async)"""
         agent = None
         for a in self.agents.values():
             if a.name.lower() == agent_name.lower() and a.status != "offline":
@@ -337,6 +337,58 @@ class WorkspaceOrchestrator:
         )
         
         return self.bus.send_to_agent(agent.id, msg)
+    
+    def chat_with_agent_sync(self, agent_name: str, message: str, timeout: int = 30) -> Optional[str]:
+        """
+        Send a chat message and wait for response (synchronous)
+        
+        Args:
+            agent_name: Name of agent to chat with
+            message: Message to send
+            timeout: Seconds to wait for response
+            
+        Returns:
+            Agent's response text or None if failed/timed out
+        """
+        import time
+        
+        agent = None
+        for a in self.agents.values():
+            if a.name.lower() == agent_name.lower() and a.status != "offline":
+                agent = a
+                break
+        
+        if not agent:
+            return None
+        
+        # Send message
+        msg = Message.create(
+            MessageType.USER_MESSAGE,
+            sender="user",
+            recipient=agent.id,
+            payload={"content": message}
+        )
+        
+        if not self.bus.send_to_agent(agent.id, msg):
+            return None
+        
+        # Wait for response by polling activity tracker
+        start_time = time.time()
+        last_count = len(self.tracker.get_agent_activity(agent.id, limit=1))
+        
+        while time.time() - start_time < timeout:
+            # Check for new activity from this agent
+            activity = self.tracker.get_agent_activity(agent.id, limit=5)
+            
+            for event in activity:
+                if event['type'] == 'agent_message' and event['to_agent'] == 'user':
+                    # Found a response to user
+                    if event['timestamp'] > datetime.fromtimestamp(start_time).isoformat():
+                        return event['content']
+            
+            time.sleep(0.5)
+        
+        return None  # Timeout
     
     def create_mission(
         self,
