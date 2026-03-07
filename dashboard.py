@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Workspace Dashboard v1.6.2 - Fixed HUD + Logs
+Workspace Dashboard v1.9.2 - Custom Chat UI
 
 Usage:
     streamlit run dashboard.py
 
-Version: v1.6.2
+Version: v1.9.2
 """
 import streamlit as st
 import time
@@ -21,7 +21,7 @@ from shared.agent_factory import agent_factory
 
 # Page config
 st.set_page_config(
-    page_title="Workspace | v1.6.2",
+    page_title="Workspace | v1.9.2",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -1071,7 +1071,7 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("---")
-    st.caption(f"Workspace v1.6.2")
+    st.caption(f"Workspace v1.9.2")
 
 # Render main content
 if st.session_state.page == "dashboard":
