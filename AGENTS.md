@@ -1,4 +1,4 @@
-# Workspace v1.6.0 - Agent Documentation
+# Workspace v1.6.1 - Agent Documentation
 
 ## Overview
 The Workspace is a multi-agent AI orchestration system running on macOS bare metal with Ollama local LLMs. It uses thread-based agents (not processes) for shared memory access.
@@ -65,38 +65,38 @@ Each agent has a `soul.md` file defining:
 | Sales Rep | 💼 | Lead gen, demos, CRM |
 | Product Manager | 📱 | Roadmaps, prioritization |
 
-## Dashboard Interface (v1.6.0)
+## Dashboard Interface (v1.6.1)
 
-The dashboard is now a **HUD-style interface** with:
+### HUD Panel (Top - Collapsible)
+```
+┌─────────────────────────────────────────────────────────┐
+│  🎯 Workspace    [Agents] [Working] [Alerts] ...   [▼]  │  ← ▲/▼ to collapse
+├─────────────────────────────────────────────────────────┤
+│  ┌────┐ ┌────┐ ┌────┐ ┌────┐                          │
+│  │🎩  │ │🎨  │ │💻  │                                  │  ← Click to chat
+│  │Mgr │ │Pix │ │Code│                                  │
+│  │IDLE│ │WORK│ │IDLE│                                  │
+│  └────┘ └────┘ └────┘                                  │
+└─────────────────────────────────────────────────────────┘
+```
 
-### Floating HUD Panel (Top)
-Glassmorphism panel showing:
-- **Metrics Row**: Agents | Working | Alerts | Missions | Tasks Done
-- **Agent Mini-Cards**: Scrollable row of active agents
-  - 🟢 Green border = Idle
-  - 🟡 Yellow border + glow = Working
-  - 🔴 Red border = Error
-  - Click any card to chat directly with that agent
+**Features:**
+- **Collapsible**: Click ▲/▼ to show/hide agent cards
+- **Metrics**: Agents, Working, Alerts, Missions, Tasks
+- **Agent Cards**: Click any to chat directly
+- **Color-coded borders**: Green=Idle, Yellow=Working, Red=Error
 
-### Main Chat Area (Center)
-- Scrollable conversation history
-- Welcome message when empty
-- Thinking indicator (🧠 + bouncing dots)
-- System messages for errors/info
+### Main Chat Area
+- Welcome message with hints
+- Message history with user/agent bubbles
+- Thinking animation (🧠 + bouncing dots)
 
-### Input Bar (Bottom - Fixed)
-- Always visible at bottom
-- Rounded text input
-- Send button with gradient
-- Auto-scrolls chat on new messages
-
-### Sidebar (Collapsed)
-Access via hamburger menu (top left):
-- Spawn Manager
-- Quick squad spawning
-- Full agent control
-- Create new agent
-- Clear chat
+### Sidebar Navigation
+- 🏠 Dashboard (main chat)
+- 🤖 Agent Control (spawn/manage agents)
+- 📋 Missions (create/execute missions)
+- 🚀 Spawn Manager
+- 🧹 Clear Chat
 2. **Chat** - 1-on-1 agent conversations (30s timeout)
 3. **Group Chat** - Multi-agent discussions
 4. **Spawn Agents** - Agent management (respawn/kill)
@@ -115,12 +115,11 @@ orchestrator.execute_mission_parallel(mission_id)
 # Runs all pending tasks concurrently with ThreadPoolExecutor
 ```
 
-### HUD Dashboard (NEW v1.6.0)
-- **Floating glassmorphism panel** at top of screen
-- **Real-time metrics**: Agent count, working, alerts, missions, tasks
-- **Agent mini-cards**: Color-coded by status, click to chat
-- **Always-visible overview**: Know team state at a glance
-- **Dark theme** with blur effects
+### HUD Dashboard (v1.6.1)
+- **Collapsible panel** - Save space when needed
+- **Real-time metrics** - Agent count, working, alerts, missions, tasks
+- **Agent mini-cards** - Click to chat, color-coded by status
+- **Working navigation** - All sidebar buttons functional
 
 ### Manager Overseer
 - **Manager Agent** (🎩) as your primary point of contact
@@ -309,7 +308,8 @@ WORKSPACE_DATA_DIR=./data
 
 ## Version History
 
-- **v1.6.0** (Current): HUD redesign, floating dashboard, chat-first interface
+- **v1.6.1** (Current): Collapsible HUD, fixed navigation, cleaner UI
+- **v1.6.0**: HUD redesign, floating dashboard, chat-first interface
 - **v1.5.0**: Manager Overseer, dynamic agent creation, thinking animations
 - **v1.4.0**: Resource monitoring, individual agent controls, better UX
 - **v1.3.0**: MVP Complete - Parallel execution, exports, handoffs
