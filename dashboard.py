@@ -179,12 +179,10 @@ if page == "🏠 Dashboard":
                     st.error("❌ Failed to spawn Hunter")
     
     with col2:
-        if st.button("💬 Start Chat", use_container_width=True):
-            st.switch_page("💬 Chat with Agents")
+        st.markdown("<a href='#chat-with-agents'><button style='width:100%; padding:10px;'>💬 Start Chat</button></a>", unsafe_allow_html=True)
     
     with col3:
-        if st.button("➕ Create Mission", use_container_width=True):
-            st.switch_page("📋 Missions")
+        st.markdown("<a href='#create-mission'><button style='width:100%; padding:10px;'>➕ Create Mission</button></a>", unsafe_allow_html=True)
     
     st.divider()
     
@@ -256,8 +254,7 @@ elif page == "💬 Chat with Agents":
     
     if not data['agents']:
         st.warning("🤖 No agents available. Spawn an agent first!")
-        if st.button("➡️ Go to Spawn Agents"):
-            st.switch_page("🤖 Spawn Agents")
+        st.info("👈 Go to '🤖 Spawn Agents' in the sidebar to create your first agent.")
         st.stop()
     
     # Select agent to chat with
