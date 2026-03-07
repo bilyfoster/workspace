@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Workspace Dashboard v1.4.0
+Workspace Dashboard v1.5.0
 
-Mission Control-style web interface with real-time agent interaction,
-resource monitoring, and individual agent management.
+Mission Control with Manager Overseer, dynamic agent creation,
+and visual processing indicators.
 
 Usage:
     streamlit run dashboard.py
 
-Version: v1.4.0
+Version: v1.5.0
 """
 import streamlit as st
 import json
@@ -25,16 +25,17 @@ from shared.bus.handoff import handoff_manager
 from shared.bus.group_chat import group_chat_manager
 from shared.bus.alerts import alert_manager
 from shared.resource_monitor import resource_monitor
+from shared.agent_factory import agent_factory, AgentFactory
 
 # Page config
 st.set_page_config(
-    page_title="Workspace | Mission Control v1.4.0",
+    page_title="Workspace | Mission Control v1.5.0",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ==================== CUSTOM CSS WITH BETTER ICONS ====================
+# ==================== CUSTOM CSS WITH THINKING ANIMATIONS ====================
 st.markdown("""
 <style>
     .main-header {
@@ -44,6 +45,98 @@ st.markdown("""
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
+    
+    /* Thinking/Processing Animation */
+    .thinking-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 25px;
+        color: white;
+        font-weight: 500;
+        margin: 10px 0;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        animation: pulse-glow 2s infinite;
+    }
+    
+    @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+        50% { box-shadow: 0 4px 25px rgba(102, 126, 234, 0.7); }
+    }
+    
+    .thinking-dots {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .thinking-dot {
+        width: 8px;
+        height: 8px;
+        background: white;
+        border-radius: 50%;
+        animation: thinking-bounce 1.4s infinite ease-in-out both;
+    }
+    
+    .thinking-dot:nth-child(1) { animation-delay: -0.32s; }
+    .thinking-dot:nth-child(2) { animation-delay: -0.16s; }
+    .thinking-dot:nth-child(3) { animation-delay: 0s; }
+    
+    @keyframes thinking-bounce {
+        0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+        40% { transform: scale(1); opacity: 1; }
+    }
+    
+    .brain-wave {
+        display: inline-block;
+        animation: brain-pulse 1s infinite;
+    }
+    
+    @keyframes brain-pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+    
+    /* Status badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 600;
+    }
+    .status-idle {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .status-working {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+        animation: status-glow 2s infinite;
+    }
+    .status-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        animation: error-pulse 1s infinite;
+    }
+    
+    @keyframes status-glow {
+        0%, 100% { box-shadow: 0 0 5px rgba(255, 193, 7, 0.3); }
+        50% { box-shadow: 0 0 15px rgba(255, 193, 7, 0.6); }
+    }
+    
+    @keyframes error-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    
+    /* Agent cards */
     .agent-card {
         background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
         border-radius: 12px;
@@ -57,52 +150,16 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
+    .agent-card.working {
+        border-left-color: #ffc107;
+        background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+    }
     .agent-card.error {
-        border-left-color: #ff4757;
+        border-left-color: #dc3545;
         background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
     }
-    .agent-card.working {
-        border-left-color: #ffa502;
-        background: linear-gradient(135deg, #fff9e6 0%, #fff0cc 100%);
-    }
-    .status-online { color: #2ed573; font-weight: bold; }
-    .status-working { color: #ffa502; font-weight: bold; }
-    .status-offline { color: #ff4757; font-weight: bold; }
-    .status-idle { color: #2ed573; font-weight: bold; }
-    .status-error { color: #ff4757; font-weight: bold; animation: pulse 1s infinite; }
     
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-    }
-    
-    /* Progress/Activity Animations */
-    .spinner {
-        display: inline-block;
-        animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
-    
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1.2rem;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .metric-card h2 {
-        margin: 0;
-        font-size: 2.5rem;
-    }
-    .metric-card p {
-        margin: 0.5rem 0 0 0;
-        opacity: 0.9;
-    }
-    
+    /* Resource bars */
     .resource-bar {
         height: 8px;
         background: #e0e0e0;
@@ -115,51 +172,11 @@ st.markdown("""
         border-radius: 4px;
         transition: width 0.3s;
     }
-    .resource-bar-fill.low { background: #2ed573; }
-    .resource-bar-fill.medium { background: #ffa502; }
-    .resource-bar-fill.high { background: #ff4757; }
+    .resource-bar-fill.low { background: #28a745; }
+    .resource-bar-fill.medium { background: #ffc107; }
+    .resource-bar-fill.high { background: #dc3545; }
     
-    .activity-indicator {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 0.85em;
-        font-weight: 500;
-    }
-    .activity-indicator.idle {
-        background: #d4edda;
-        color: #155724;
-    }
-    .activity-indicator.working {
-        background: #fff3cd;
-        color: #856404;
-    }
-    .activity-indicator.error {
-        background: #f8d7da;
-        color: #721c24;
-    }
-    
-    .agent-control-btn {
-        padding: 6px 12px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        font-size: 0.85em;
-        transition: all 0.2s;
-    }
-    .agent-control-btn:hover {
-        transform: scale(1.05);
-    }
-    
-    .chat-container {
-        background-color: #f8f9fa;
-        border-radius: 12px;
-        padding: 20px;
-        max-height: 500px;
-        overflow-y: auto;
-    }
+    /* Chat bubbles */
     .chat-message-user {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -182,6 +199,47 @@ st.markdown("""
         clear: both;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
+    
+    /* Activity timeline */
+    .activity-item {
+        padding: 8px 12px;
+        margin: 4px 0;
+        border-radius: 8px;
+        font-size: 0.9em;
+        border-left: 3px solid transparent;
+    }
+    .activity-task-started { background: #e3f2fd; border-left-color: #2196f3; }
+    .activity-task-completed { background: #e8f5e9; border-left-color: #4caf50; }
+    .activity-agent-online { background: #f3e5f5; border-left-color: #9c27b0; }
+    .activity-agent-offline { background: #fafafa; border-left-color: #9e9e9e; }
+    .activity-error { background: #ffebee; border-left-color: #f44336; }
+    
+    /* Manager overview cards */
+    .overview-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e0e0e0;
+    }
+    
+    /* Metric cards */
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.2rem;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .metric-card h2 {
+        margin: 0;
+        font-size: 2.5rem;
+    }
+    .metric-card p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -190,17 +248,15 @@ if 'orchestrator' not in st.session_state:
     st.session_state.orchestrator = get_orchestrator()
 if 'tracker' not in st.session_state:
     st.session_state.tracker = tracker
-if 'handoff_manager' not in st.session_state:
-    st.session_state.handoff_manager = handoff_manager
-if 'group_chat' not in st.session_state:
-    st.session_state.group_chat = group_chat_manager
-if 'alerts' not in st.session_state:
-    st.session_state.alerts = alert_manager
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = {}
 if 'resource_monitor' not in st.session_state:
     st.session_state.resource_monitor = resource_monitor
     resource_monitor.start_monitoring(interval=5.0)
+if 'agent_factory' not in st.session_state:
+    st.session_state.agent_factory = agent_factory
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = {}
+if 'thinking_agents' not in st.session_state:
+    st.session_state.thinking_agents = set()  # Track which agents are thinking
 
 def get_dashboard_data():
     """Get current system state"""
@@ -210,42 +266,37 @@ def get_dashboard_data():
         st.error(f"Error loading data: {e}")
         return None
 
-# ==================== SIDEBAR ====================
-st.sidebar.markdown("# 🎯 Workspace")
-st.sidebar.markdown("### Mission Control v1.4.0")
+def render_thinking_indicator(agent_name: str, message: str = "Processing..."):
+    """Render a thinking/processing animation"""
+    st.markdown(f"""
+    <div class="thinking-container">
+        <span class="brain-wave">🧠</span>
+        <span>{agent_name} is {message}</span>
+        <div class="thinking-dots">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Navigation with icons
-page = st.sidebar.radio(
-    "Navigate",
-    ["🏠 Dashboard", "💬 Chat 1-on-1", "👥 Group Chat", "🤖 Agent Control", 
-     "📋 Missions", "🔄 Handoffs", "🔔 Alerts", "📊 Analytics", "📜 Logs & Debug", "⚙️ System"]
-)
-
-# ==================== HELPER FUNCTIONS ====================
-
-def get_status_icon(status: str, with_animation: bool = True) -> str:
-    """Get appropriate status icon with optional animation"""
-    icons = {
-        'idle': ('🟢', '⚡'),           # Ready/Active
-        'working': ('🔵', '⏳'),       # Busy/Processing  
-        'error': ('🔴', '⚠️'),         # Error
-        'offline': ('⚫', '💤'),       # Offline
-        'initializing': ('🟡', '🔄'),  # Starting up
+def render_status_badge(status: str, agent_name: str = "") -> str:
+    """Render a status badge with appropriate styling"""
+    badges = {
+        'idle': ('☕', 'Idle'),
+        'working': ('⚡', 'Working'),
+        'error': ('⚠️', 'Error'),
+        'offline': ('💤', 'Offline'),
+        'initializing': ('🔄', 'Starting...')
     }
-    base, anim = icons.get(status, ('⚪', '○'))
-    if with_animation and status == 'working':
-        return f'<span class="spinner">{anim}</span>'
-    return base
-
-def get_activity_emoji(status: str) -> str:
-    """Get emoji showing current activity"""
-    return {
-        'idle': '☕ Idle',
-        'working': '⚡ Working',
-        'error': '⚠️ Error',
-        'offline': '💤 Offline',
-        'initializing': '🔄 Starting...'
-    }.get(status, status)
+    icon, text = badges.get(status, ('⚪', status))
+    
+    if status == 'working':
+        return f'<span class="status-badge status-working">{icon} {text}</span>'
+    elif status == 'error':
+        return f'<span class="status-badge status-error">{icon} {text}</span>'
+    else:
+        return f'<span class="status-badge status-idle">{icon} {text}</span>'
 
 def render_resource_bar(value: float, label: str):
     """Render a resource usage bar"""
@@ -263,38 +314,47 @@ def render_resource_bar(value: float, label: str):
     </div>
     """, unsafe_allow_html=True)
 
-def ping_agent(agent_id: str) -> bool:
-    """Ping an agent to check if it's responsive"""
-    try:
-        orch = st.session_state.orchestrator
-        # Send a ping message and wait for response
-        orch.bus.publish({
-            'type': 'ping',
-            'sender': 'dashboard',
-            'recipient': agent_id,
-            'timestamp': time.time()
-        })
-        return True
-    except Exception:
-        return False
+# ==================== SIDEBAR ====================
+st.sidebar.markdown("# 🎯 Workspace")
+st.sidebar.markdown("### Mission Control v1.5.0")
 
-# ==================== DASHBOARD PAGE ====================
-if page == "🏠 Dashboard":
-    st.markdown('<p class="main-header">🎯 Mission Control Dashboard</p>', unsafe_allow_html=True)
+# Navigation
+page = st.sidebar.radio(
+    "Navigate",
+    ["🎩 Manager", "🏠 Dashboard", "💬 Chat", "🤖 Agents", "📋 Missions", 
+     "📊 Analytics", "📜 Logs", "⚙️ System"]
+)
+
+# ==================== MANAGER PAGE (PRIMARY) ====================
+if page == "🎩 Manager":
+    st.markdown('<p class="main-header">🎩 Manager Overview</p>', unsafe_allow_html=True)
+    st.markdown("Your central command center for the entire Workspace.")
     
     data = get_dashboard_data()
     if not data:
         st.stop()
     
-    # Quick stats row
-    col1, col2, col3, col4 = st.columns(4)
+    # Spawn Manager if not running
+    manager_running = any(a['name'] == 'Manager' for a in data['agents'])
+    if not manager_running:
+        st.info("🎩 Manager agent is not active. Spawn the Manager to have an overseer.")
+        if st.button("🚀 Spawn Manager", type="primary"):
+            with st.spinner("Spawning Manager..."):
+                result = st.session_state.orchestrator.spawn_agent('manager')
+                if result:
+                    resource_monitor.register_agent(result.id, result.name)
+                    st.success("✅ Manager is online!")
+                    time.sleep(1)
+                    st.rerun()
+    
+    # Top metrics row
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        agent_count = len(data['agents'])
         st.markdown(f"""
         <div class="metric-card">
-            <h2>{agent_count}</h2>
-            <p>🤖 Active Agents</p>
+            <h2>{len(data['agents'])}</h2>
+            <p>🤖 Agents</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -303,7 +363,7 @@ if page == "🏠 Dashboard":
         st.markdown(f"""
         <div class="metric-card">
             <h2>{working}</h2>
-            <p>⚡ Working Now</p>
+            <p>⚡ Working</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -312,695 +372,441 @@ if page == "🏠 Dashboard":
         st.markdown(f"""
         <div class="metric-card">
             <h2>{active_missions}</h2>
-            <p>🚀 Active Missions</p>
+            <p>🚀 Missions</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col4:
-        # System resource summary
-        sys_resources = resource_monitor.get_system_summary()
-        mem_pct = sys_resources.get('system_memory_percent', 0)
+        completed_tasks = sum(a['tasks_completed'] for a in data['agents'])
+        st.markdown(f"""
+        <div class="metric-card">
+            <h2>{completed_tasks}</h2>
+            <p>✅ Tasks Done</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col5:
+        sys_res = resource_monitor.get_system_summary()
+        mem_pct = sys_res.get('system_memory_percent', 0)
         st.markdown(f"""
         <div class="metric-card">
             <h2>{mem_pct:.0f}%</h2>
-            <p>💾 Memory Used</p>
+            <p>💾 Memory</p>
         </div>
         """, unsafe_allow_html=True)
     
     st.divider()
     
-    # Live Squad with resources
-    st.subheader("👥 Your Squad")
-    
-    if not data['agents']:
-        st.info("🤖 No agents active. Go to '🤖 Agent Control' to get started!")
-    else:
-        # Show agents in a grid with resource info
-        for agent in data['agents']:
-            card_class = "working" if agent['status'] == 'working' else "error" if agent['status'] == 'error' else ""
-            status_icon = get_status_icon(agent['status'])
-            activity = get_activity_emoji(agent['status'])
-            
-            # Get resource info
-            resources = resource_monitor.get_agent_resources(agent['id'])
-            cpu_str = "--"
-            mem_str = "--"
-            if resources and resources.get_current():
-                snap = resources.get_current()
-                cpu_str = f"{snap.cpu_percent:.1f}%"
-                mem_str = f"{snap.memory_mb:.1f} MB"
-            
-            col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
-            
-            with col1:
-                st.markdown(f"""
-                <div class="agent-card {card_class}">
-                    <h3>{agent['avatar']} {agent['name']}</h3>
-                    <p><span class="activity-indicator {agent['status']}">{status_icon} {activity}</span></p>
-                    <p style="font-size: 0.9em; color: #666;">{agent['role']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"**📊 Resources**")
-                st.text(f"CPU: {cpu_str}")
-                st.text(f"Memory: {mem_str}")
-            
-            with col3:
-                st.markdown(f"**✅ Tasks**")
-                st.text(f"Completed: {agent['tasks_completed']}")
-                if agent.get('current_task'):
-                    st.text(f"Current: {agent['current_task'][:30]}...")
-            
-            with col4:
-                st.markdown(f"**🎮 Actions**")
-                if st.button("💬 Chat", key=f"dash_chat_{agent['id']}"):
-                    st.session_state.selected_agent_for_chat = agent['id']
-                    st.rerun()
-                if st.button("🔧 Manage", key=f"dash_manage_{agent['id']}"):
-                    st.session_state.selected_agent_for_management = agent['id']
-                    st.rerun()
-
-# ==================== CHAT 1-ON-1 PAGE ====================
-elif page == "💬 Chat 1-on-1":
-    st.markdown('<p class="main-header">💬 Chat with Your Agents</p>', unsafe_allow_html=True)
-    
-    data = get_dashboard_data()
-    if not data:
-        st.stop()
-    
-    if not data['agents']:
-        st.warning("🤖 No agents available. Spawn an agent first!")
-        st.info("👈 Go to '🤖 Agent Control' in the sidebar to create your first agent.")
-        st.stop()
-    
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        st.subheader("Select Agent")
-        
-        # Agent selector with health indicator
-        agent_options = {}
-        for a in data['agents']:
-            status_dot = "🟢" if a['status'] == 'idle' else "🔵" if a['status'] == 'working' else "🔴"
-            agent_options[a['id']] = f"{a['avatar']} {a['name']} {status_dot}"
-        
-        # Check if we have a pre-selected agent from dashboard
-        default_idx = 0
-        if 'selected_agent_for_chat' in st.session_state:
-            try:
-                default_idx = list(agent_options.keys()).index(st.session_state.selected_agent_for_chat)
-                del st.session_state.selected_agent_for_chat
-            except ValueError:
-                pass
-        
-        selected_agent_id = st.selectbox(
-            "Choose an agent to chat with",
-            options=list(agent_options.keys()),
-            format_func=lambda x: agent_options[x],
-            index=default_idx
-        )
-        
-        selected_agent = next((a for a in data['agents'] if a['id'] == selected_agent_id), None)
-        
-        if selected_agent:
-            # Health check
-            st.markdown("---")
-            st.markdown("**Agent Health**")
-            
-            col_h1, col_h2 = st.columns(2)
-            with col_h1:
-                if st.button("🔔 Ping Agent", key="ping_btn"):
-                    with st.spinner("Pinging..."):
-                        success = ping_agent(selected_agent_id)
-                        if success:
-                            st.success("✅ Agent is responsive")
-                        else:
-                            st.error("❌ Agent not responding")
-            
-            with col_h2:
-                thread_alive = selected_agent.get('thread_alive', False)
-                st.markdown(f"Thread: {'✅ Alive' if thread_alive else '❌ Dead'}")
-            
-            # Resource usage
-            resources = resource_monitor.get_agent_resources(selected_agent_id)
-            if resources and resources.get_current():
-                snap = resources.get_current()
-                st.markdown("---")
-                st.markdown("**Resource Usage**")
-                render_resource_bar(snap.cpu_percent * 10, "CPU")  # Scale for visibility
-                st.text(f"Memory: {snap.memory_mb:.1f} MB")
-        
-        st.divider()
-        
-        # Quick prompts
-        st.subheader("💡 Quick Prompts")
-        quick_prompts = [
-            "Introduce yourself",
-            "What can you help me with?",
-            "Tell me about your skills",
-            "Help me plan a mission"
-        ]
-        
-        for prompt in quick_prompts:
-            if st.button(prompt, key=f"quick_{prompt}", use_container_width=True):
-                if selected_agent_id not in st.session_state.chat_history:
-                    st.session_state.chat_history[selected_agent_id] = []
-                
-                st.session_state.chat_history[selected_agent_id].append({
-                    "role": "user", 
-                    "content": prompt,
-                    "timestamp": datetime.now().isoformat()
-                })
-                
-                with st.spinner(f"{selected_agent['name']} is thinking..."):
-                    response = st.session_state.orchestrator.chat_with_agent_sync(
-                        selected_agent['name'], 
-                        prompt,
-                        timeout=30
-                    )
-                
-                if response:
-                    st.session_state.chat_history[selected_agent_id].append({
-                        "role": "agent",
-                        "content": response,
-                        "timestamp": datetime.now().isoformat()
-                    })
-                    st.rerun()
-                else:
-                    st.error("❌ No response from agent (timeout or error)")
-                    st.info("💡 Try respawning the agent in '🤖 Agent Control'")
-    
-    with col2:
-        st.subheader(f"💬 Conversation with {selected_agent['name'] if selected_agent else '...'}")
-        
-        # Initialize chat history
-        if selected_agent_id not in st.session_state.chat_history:
-            st.session_state.chat_history[selected_agent_id] = []
-        
-        # Display chat
-        chat_container = st.container()
-        with chat_container:
-            if st.session_state.chat_history[selected_agent_id]:
-                if st.button("📥 Export Chat", key=f"export_chat_{selected_agent_id}"):
-                    export_path = st.session_state.orchestrator.chat_history.export_chat(
-                        selected_agent_id, "markdown"
-                    )
-                    if export_path:
-                        st.success(f"✅ Exported to: {export_path}")
-                    else:
-                        st.error("❌ Export failed")
-            
-            if not st.session_state.chat_history[selected_agent_id]:
-                st.info("👋 Start a conversation! Type a message below or use Quick Prompts.")
-            else:
-                for msg in st.session_state.chat_history[selected_agent_id]:
-                    if msg['role'] == 'user':
-                        st.markdown(f"""
-                        <div class="chat-message-user">
-                            <b>You:</b><br>{msg['content']}
-                        </div>
-                        <div style="clear: both;"></div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div class="chat-message-agent">
-                            <b>{selected_agent['name']}:</b><br>{msg['content']}
-                        </div>
-                        <div style="clear: both;"></div>
-                        """, unsafe_allow_html=True)
-        
-        # Chat input
-        st.divider()
-        with st.form("chat_form", clear_on_submit=True):
-            message = st.text_input("Type your message", key="chat_input", placeholder="Ask something...")
-            submitted = st.form_submit_button("Send 📤", use_container_width=True)
-            
-            if submitted and message:
-                st.session_state.chat_history[selected_agent_id].append({
-                    "role": "user",
-                    "content": message,
-                    "timestamp": datetime.now().isoformat()
-                })
-                
-                with st.spinner(f"{selected_agent['name']} is thinking..."):
-                    response = st.session_state.orchestrator.chat_with_agent_sync(
-                        selected_agent['name'],
-                        message,
-                        timeout=30
-                    )
-                
-                if response:
-                    st.session_state.chat_history[selected_agent_id].append({
-                        "role": "agent",
-                        "content": response,
-                        "timestamp": datetime.now().isoformat()
-                    })
-                    st.rerun()
-                else:
-                    st.error("❌ No response from agent")
-                    st.info("The agent may be busy or unresponsive. Try:")
-                    st.markdown("1. Check agent status in 'Agent Control'")
-                    st.markdown("2. Respawn the agent if needed")
-                    st.markdown("3. Check Logs & Debug for errors")
-
-# ==================== GROUP CHAT PAGE ====================
-elif page == "👥 Group Chat":
-    st.markdown('<p class="main-header">👥 Group Chat with Your Squad</p>', unsafe_allow_html=True)
-    
-    data = get_dashboard_data()
-    if not data:
-        st.stop()
-    
-    if len(data['agents']) < 2:
-        st.warning("👥 You need at least 2 agents for a group chat!")
-        st.stop()
-    
-    tab1, tab2 = st.tabs(["💬 Active Groups", "➕ Create New Group"])
+    # Main manager interface
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 Live Status", "💬 Chat with Manager", "➕ Create Agent", "🎯 Quick Actions"])
     
     with tab1:
-        st.subheader("Your Group Chats")
-        groups = data.get('groups', [])
+        st.subheader("Live Team Status")
         
-        if not groups:
-            st.info("📝 No group chats yet. Create one in the 'Create New Group' tab!")
+        if not data['agents']:
+            st.info("No agents running. Use '➕ Create Agent' or '🤖 Agents' to spawn your team.")
         else:
-            for group in groups:
-                with st.expander(f"👥 {group['name']} ({group['member_count']} members)"):
-                    st.write(f"**Type:** {group['type']}")
-                    st.write(f"**Members:** {', '.join(group['members'])}")
+            # Show agents in a detailed table
+            for agent in data['agents']:
+                card_class = "working" if agent['status'] == 'working' else "error" if agent['status'] == 'error' else ""
+                
+                with st.container():
+                    cols = st.columns([2, 2, 2, 2, 3])
                     
-                    message = st.text_input(f"Message to {group['name']}", key=f"group_msg_{group['id']}")
-                    if st.button("Send to Group 📤", key=f"send_group_{group['id']}"):
-                        if message:
-                            st.session_state.group_chat.send_to_group(
-                                group_id=group['id'],
-                                sender="user",
-                                content=message
-                            )
-                            st.success(f"Sent to {group['name']}!")
-                            time.sleep(1)
-                            st.rerun()
+                    with cols[0]:
+                        st.markdown(f"""
+                        <div class="agent-card {card_class}">
+                            <h3>{agent['avatar']} {agent['name']}</h3>
+                            <p>{render_status_badge(agent['status'], agent['name'])}</p>
+                            <p style="font-size: 0.85em; color: #666;">{agent['role']}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with cols[1]:
+                        st.markdown("**📊 Resources**")
+                        resources = resource_monitor.get_agent_resources(agent['id'])
+                        if resources and resources.get_current():
+                            snap = resources.get_current()
+                            st.text(f"CPU: {snap.cpu_percent:.1f}%")
+                            st.text(f"Memory: {snap.memory_mb:.1f} MB")
+                        else:
+                            st.text("Collecting...")
+                    
+                    with cols[2]:
+                        st.markdown("**✅ Activity**")
+                        st.text(f"Tasks: {agent['tasks_completed']}")
+                        if agent.get('current_task'):
+                            st.text(f"Now: {agent['current_task'][:25]}...")
+                    
+                    with cols[3]:
+                        st.markdown("**🎮 Actions**")
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            if st.button("💬", key=f"mgr_chat_{agent['id']}"):
+                                st.session_state.selected_agent_chat = agent['id']
+                                st.rerun()
+                        with c2:
+                            if st.button("🔧", key=f"mgr_manage_{agent['id']}"):
+                                st.session_state.selected_page = "🤖 Agents"
+                                st.rerun()
+                    
+                    with cols[4]:
+                        # Show thinking indicator if working
+                        if agent['status'] == 'working':
+                            render_thinking_indicator(agent['name'], f"working on: {agent.get('current_task', 'task')[:30]}...")
     
     with tab2:
-        st.subheader("Create New Group Chat")
-        with st.form("create_group_form"):
-            group_name = st.text_input("Group Name", placeholder="e.g., Dev Team Standup")
-            
-            agent_list = [(a['id'], f"{a['avatar']} {a['name']}") for a in data['agents']]
-            selected_members = st.multiselect(
-                "Select Members",
-                options=[a[0] for a in agent_list],
-                format_func=lambda x: next((a[1] for a in agent_list if a[0] == x), x)
-            )
-            
-            submitted = st.form_submit_button("👥 Create Group", type="primary")
-            if submitted:
-                if not group_name or len(selected_members) < 2:
-                    st.error("Need name and at least 2 members")
-                else:
-                    member_names = [next((a['name'] for a in data['agents'] if a['id'] == mid), mid) 
-                                   for mid in selected_members]
-                    st.session_state.group_chat.create_group(
-                        name=group_name,
-                        members=member_names,
-                        created_by="user"
-                    )
-                    st.success(f"✅ Created group: {group_name}")
-
-# ==================== AGENT CONTROL PAGE (REVAMPED) ====================
-elif page == "🤖 Agent Control":
-    st.markdown('<p class="main-header">🤖 Agent Control Center</p>', unsafe_allow_html=True)
-    
-    data = get_dashboard_data()
-    if not data:
-        st.stop()
-    
-    # System resources overview
-    st.subheader("📊 System Resources")
-    sys_resources = resource_monitor.get_system_summary()
-    
-    if 'error' not in sys_resources:
-        cols = st.columns(4)
-        with cols[0]:
-            st.metric("Active Agents", sys_resources['total_agents'])
-        with cols[1]:
-            st.metric("Process CPU", f"{sys_resources['process_cpu_percent']:.1f}%")
-        with cols[2]:
-            mem_gb = sys_resources['process_memory_mb'] / 1024
-            st.metric("Process Memory", f"{mem_gb:.2f} GB")
-        with cols[3]:
-            st.metric("System Memory", f"{sys_resources['system_memory_percent']:.0f}%")
-    
-    st.divider()
-    
-    # Individual Agent Management
-    st.subheader("🎮 Individual Agent Management")
-    
-    if not data['agents']:
-        st.info("No agents running. Spawn some below!")
-    else:
-        # Detailed agent table
-        for agent in data['agents']:
-            # Get resource data
-            resources = resource_monitor.get_agent_resources(agent['id'])
-            
-            with st.expander(f"{agent['avatar']} {agent['name']} - {get_activity_emoji(agent['status'])}", 
-                           expanded=st.session_state.get('selected_agent_for_management') == agent['id']):
-                
-                # Clear the selection after showing
-                if st.session_state.get('selected_agent_for_management') == agent['id']:
-                    del st.session_state.selected_agent_for_management
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.markdown("**📋 Info**")
-                    st.text(f"ID: {agent['id'][:20]}...")
-                    st.text(f"Role: {agent['role']}")
-                    st.text(f"Model: {agent.get('model', 'Default')}")
-                    st.text(f"Started: {agent.get('started_at', 'Unknown')[:19] if agent.get('started_at') else 'Unknown'}")
-                
-                with col2:
-                    st.markdown("**📊 Resources**")
-                    if resources and resources.get_current():
-                        snap = resources.get_current()
-                        st.text(f"CPU: {snap.cpu_percent:.1f}%")
-                        st.text(f"Memory: {snap.memory_mb:.1f} MB")
-                        st.text(f"Avg CPU: {resources.get_average_cpu():.1f}%")
-                        st.text(f"Peak Memory: {resources.get_peak_memory():.1f} MB")
-                    else:
-                        st.text("No data yet...")
-                
-                with col3:
-                    st.markdown("**✅ Activity**")
-                    st.text(f"Tasks Done: {agent['tasks_completed']}")
-                    if resources:
-                        st.text(f"Total Tokens: {resources.total_tokens_used}")
-                    if agent.get('current_task'):
-                        st.text(f"Current: {agent['current_task'][:40]}...")
-                
-                with col4:
-                    st.markdown("**🎮 Actions**")
-                    
-                    if st.button("🔄 Respawn", key=f"respawn_{agent['id']}", use_container_width=True):
-                        with st.spinner(f"Respawning {agent['name']}..."):
-                            st.session_state.orchestrator.kill_agent(agent['id'])
-                            time.sleep(0.5)
-                            result = st.session_state.orchestrator.spawn_agent(agent['name'].lower())
-                            if result:
-                                st.success(f"✅ {agent['name']} respawned!")
-                                resource_monitor.register_agent(result.id, result.name)
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.error(f"❌ Failed to respawn")
-                    
-                    if st.button("🛑 Kill", key=f"kill_{agent['id']}", use_container_width=True):
-                        st.session_state.orchestrator.kill_agent(agent['id'])
-                        resource_monitor.unregister_agent(agent['id'])
-                        st.warning(f"🛑 {agent['name']} killed")
-                        time.sleep(1)
-                        st.rerun()
-                    
-                    if st.button("💬 Chat", key=f"chat_ctrl_{agent['id']}", use_container_width=True):
-                        st.session_state.selected_agent_for_chat = agent['id']
-                        st.rerun()
-                    
-                    if st.button("🔔 Ping", key=f"ping_{agent['id']}", use_container_width=True):
-                        with st.spinner("Pinging..."):
-                            if ping_agent(agent['id']):
-                                st.success("✅ Responsive")
-                            else:
-                                st.error("❌ Not responding")
-    
-    # Global actions
-    if data['agents']:
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🛑 Kill All Agents", type="secondary"):
-                for agent in data['agents']:
-                    st.session_state.orchestrator.kill_agent(agent['id'])
-                    resource_monitor.unregister_agent(agent['id'])
-                st.warning("🛑 All agents killed")
-                time.sleep(1)
-                st.rerun()
-        with col2:
-            if st.button("🔄 Respawn All", type="secondary"):
-                agent_names = [a['name'].lower() for a in data['agents']]
-                for agent in data['agents']:
-                    st.session_state.orchestrator.kill_agent(agent['id'])
-                    resource_monitor.unregister_agent(agent['id'])
-                time.sleep(0.5)
-                for name in agent_names:
-                    result = st.session_state.orchestrator.spawn_agent(name)
-                    if result:
-                        resource_monitor.register_agent(result.id, result.name)
-                st.success("✅ All agents respawned")
-                time.sleep(1)
-                st.rerun()
-    
-    st.divider()
-    
-    # Spawn new agents
-    st.subheader("🚀 Spawn New Agents")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**Individual Agents**")
-        available = data.get('available_agents', [])
+        st.subheader("💬 Chat with Manager")
         
-        for agent_name in available:
-            soul_path = Path(f"./agents/{agent_name}/soul.md")
-            if soul_path.exists():
-                content = soul_path.read_text()
-                avatar = "🤖"
-                role = "Agent"
-                for line in content.split('\n'):
-                    if '**Avatar:**' in line:
-                        avatar = line.split(':**')[1].strip() if ':**' in line else "🤖"
-                    if '**Role:**' in line:
-                        role = line.split(':**')[1].strip() if ':**' in line else "Agent"
+        manager_agent = next((a for a in data['agents'] if a['name'] == 'Manager'), None)
+        
+        if not manager_agent:
+            st.warning("🎩 Manager agent is not active. Spawn the Manager first!")
+        else:
+            # Initialize chat history for Manager
+            if 'manager_chat' not in st.session_state:
+                st.session_state.manager_chat = []
+            
+            # Display chat
+            chat_container = st.container()
+            with chat_container:
+                if not st.session_state.manager_chat:
+                    st.info("👋 Ask the Manager anything!\n\nTry:\n• 'Who's working on what?'\n• 'Spawn the creative squad'\n• 'Create a data analyst agent named Atlas'")
+                else:
+                    for msg in st.session_state.manager_chat:
+                        if msg['role'] == 'user':
+                            st.markdown(f"""
+                            <div class="chat-message-user">
+                                <b>You:</b><br>{msg['content']}
+                            </div>
+                            <div style="clear: both;"></div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""
+                            <div class="chat-message-agent">
+                                <b>🎩 Manager:</b><br>{msg['content']}
+                            </div>
+                            <div style="clear: both;"></div>
+                            """, unsafe_allow_html=True)
+            
+            # Input
+            with st.form("manager_chat_form", clear_on_submit=True):
+                msg = st.text_input("Message Manager", placeholder="Ask about team status, spawn agents, create new ones...")
+                cols = st.columns([1, 1])
+                with cols[0]:
+                    submitted = st.form_submit_button("Send 📤", use_container_width=True)
+                with cols[1]:
+                    if st.form_submit_button("🧹 Clear", use_container_width=True):
+                        st.session_state.manager_chat = []
+                        st.rerun()
                 
-                is_running = any(a['name'].lower() == agent_name.lower() for a in data['agents'])
-                
-                c1, c2 = st.columns([3, 1])
-                with c1:
-                    st.markdown(f"{avatar} **{agent_name.title()}**  
-<small>{role}</small>", unsafe_allow_html=True)
-                with c2:
-                    if is_running:
-                        st.button("✅ Running", key=f"spawn_status_{agent_name}", disabled=True)
-                    else:
-                        if st.button("🚀 Spawn", key=f"spawn_{agent_name}"):
-                            with st.spinner(f"Spawning {agent_name}..."):
+                if submitted and msg:
+                    st.session_state.manager_chat.append({"role": "user", "content": msg})
+                    
+                    # Check for special commands
+                    msg_lower = msg.lower()
+                    
+                    if "who" in msg_lower and ("working" in msg_lower or "doing" in msg_lower):
+                        # Generate status summary
+                        summary = "Here's what everyone's doing:\n\n"
+                        for a in data['agents']:
+                            status = "working on: " + a.get('current_task', 'something')[:40] if a['status'] == 'working' else a['status']
+                            summary += f"• {a['avatar']} **{a['name']}** - {status}\n"
+                        summary += f"\n📊 Total tasks completed: {sum(a['tasks_completed'] for a in data['agents'])}"
+                        st.session_state.manager_chat.append({"role": "agent", "content": summary})
+                        st.rerun()
+                    
+                    elif "spawn" in msg_lower or "start" in msg_lower:
+                        # Extract agent names
+                        spawned = []
+                        for agent_name in data.get('available_agents', []):
+                            if agent_name.lower() in msg_lower:
                                 result = st.session_state.orchestrator.spawn_agent(agent_name)
                                 if result:
                                     resource_monitor.register_agent(result.id, result.name)
-                                    st.success(f"✅ {agent_name.title()} spawned!")
-                                    time.sleep(1)
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ Failed")
-    
-    with col2:
-        st.markdown("**⚡ Quick Squads**")
-        squads = {
-            "🎯 Sales Squad": ['hunter', 'pepper', 'sage'],
-            "🎨 Creative Squad": ['quill', 'pixel', 'shuri'],
-            "💻 Dev Squad": ['code', 'guardian', 'wong'],
-            "🔬 Research Squad": ['scout', 'sage', 'shuri']
-        }
-        
-        for squad_name, agents in squads.items():
-            with st.expander(f"{squad_name}"):
-                st.write(f"Agents: {', '.join(agents)}")
-                if st.button(f"🚀 Spawn Squad", key=f"squad_{squad_name}"):
-                    progress = st.progress(0)
-                    for i, name in enumerate(agents):
-                        result = st.session_state.orchestrator.spawn_agent(name)
-                        if result:
-                            resource_monitor.register_agent(result.id, result.name)
-                        progress.progress((i + 1) / len(agents))
-                    st.success(f"✅ Squad spawned!")
-                    time.sleep(1)
-                    st.rerun()
-
-# ==================== MISSIONS PAGE ====================
-elif page == "📋 Missions":
-    st.markdown('<p class="main-header">📋 Mission Control</p>', unsafe_allow_html=True)
-    
-    data = get_dashboard_data()
-    if not data:
-        st.stop()
-    
-    tab1, tab2 = st.tabs(["📋 Active Missions", "➕ Create New"])
-    
-    with tab1:
-        if not data['missions']:
-            st.info("No missions yet. Create one!")
-        else:
-            for mission in data['missions']:
-                with st.expander(f"📋 {mission['title']} ({mission['progress']['percent']}% complete)"):
-                    cols = st.columns(3)
-                    with cols[0]:
-                        st.metric("Status", mission['status'])
-                    with cols[1]:
-                        st.metric("Tasks", f"{mission['progress']['completed']}/{mission['progress']['total']}")
-                    with cols[2]:
-                        st.metric("Progress", f"{mission['progress']['percent']}%")
+                                    spawned.append(agent_name.title())
+                        
+                        if spawned:
+                            st.session_state.manager_chat.append({"role": "agent", "content": f"✅ Spawned: {', '.join(spawned)}"})
+                        else:
+                            # Show thinking and then respond
+                            st.session_state.thinking_agents.add('manager')
+                            with st.spinner("🧠 Manager is thinking..."):
+                                response = st.session_state.orchestrator.chat_with_agent_sync('Manager', msg, timeout=30)
+                            st.session_state.thinking_agents.discard('manager')
+                            if response:
+                                st.session_state.manager_chat.append({"role": "agent", "content": response})
+                        st.rerun()
                     
-                    # Auto-execute
-                    if mission['status'] == 'active' and mission['progress']['percent'] < 100:
-                        if st.button("🚀 Auto-Execute All", key=f"auto_{mission['id']}"):
-                            with st.spinner("Starting..."):
-                                st.session_state.orchestrator.execute_mission_auto(mission['id'], parallel=True)
-                            st.success("✅ Started!")
-                            time.sleep(1)
-                            st.rerun()
-                    
-                    # Export
-                    if mission['progress']['completed'] > 0:
-                        if st.button("📥 Export", key=f"export_{mission['id']}"):
-                            export_path = st.session_state.orchestrator.export_mission(mission['id'], "markdown")
-                            if export_path:
-                                st.success(f"✅ Exported: {export_path}")
-                            else:
-                                st.error("❌ Export failed")
-                    
-                    # Tasks
-                    st.subheader("Tasks")
-                    full_mission = st.session_state.orchestrator.mission_manager.get_mission(mission['id'])
-                    if full_mission:
-                        for task in full_mission.tasks:
-                            status_icon = {"pending": "⏳", "in_progress": "⏳", "completed": "✅", "failed": "❌"}.get(task.status, "⏳")
-                            cols = st.columns([4, 2])
-                            with cols[0]:
-                                st.write(f"{status_icon} {task.description}")
-                            with cols[1]:
-                                st.write(f"👤 {task.assigned_to or 'Unassigned'}")
-    
-    with tab2:
-        st.subheader("🚀 Create New Mission")
-        if not data['agents']:
-            st.warning("⚠️ You need at least one agent!")
-            st.stop()
-        
-        with st.form("mission_form"):
-            title = st.text_input("Mission Title *", placeholder="e.g., Launch Q2 Campaign")
-            description = st.text_area("Description")
-            
-            tasks = []
-            for i in range(5):
-                cols = st.columns([3, 2])
-                with cols[0]:
-                    task_desc = st.text_input(f"Task {i+1}", key=f"task_{i}", placeholder=f"Task {i+1} (optional)")
-                with cols[1]:
-                    agent_list = [a['name'] for a in data['agents']]
-                    assigned = st.selectbox(f"Assign to", ["Auto"] + agent_list, key=f"agent_{i}")
-                if task_desc:
-                    tasks.append({"description": task_desc, "assigned_to": None if assigned == "Auto" else assigned})
-            
-            submitted = st.form_submit_button("🚀 Launch Mission", type="primary")
-            if submitted:
-                if not title or not tasks:
-                    st.error("Need title and at least one task")
-                else:
-                    mission = st.session_state.orchestrator.create_mission(title=title, description=description, tasks=tasks)
-                    st.success(f"✅ Mission created: {mission.id}")
-
-# ==================== HANDOFFS PAGE ====================
-elif page == "🔄 Handoffs":
-    st.markdown('<p class="main-header">🔄 Agent Handoffs</p>', unsafe_allow_html=True)
-    st.info("Handoffs allow agents to pass work to each other with full context.")
-
-# ==================== ALERTS PAGE ====================
-elif page == "🔔 Alerts":
-    st.markdown('<p class="main-header">🔔 Activity Alerts</p>', unsafe_allow_html=True)
-    st.success("✅ No active alerts! System is healthy.")
-
-# ==================== ANALYTICS PAGE ====================
-elif page == "📊 Analytics":
-    st.markdown('<p class="main-header">📊 System Analytics</p>', unsafe_allow_html=True)
-    
-    data = get_dashboard_data()
-    if not data:
-        st.stop()
-    
-    # Resource usage charts
-    st.subheader("📈 Resource Usage Over Time")
-    
-    for agent in data['agents']:
-        resources = resource_monitor.get_agent_resources(agent['id'])
-        if resources and len(resources.snapshots) > 1:
-            with st.expander(f"{agent['avatar']} {agent['name']}"):
-                # Prepare data for chart
-                times = [s.timestamp for s in resources.snapshots]
-                cpus = [s.cpu_percent for s in resources.snapshots]
-                mems = [s.memory_mb for s in resources.snapshots]
-                
-                chart_data = {"Time": range(len(times)), "CPU %": cpus, "Memory MB": mems}
-                st.line_chart(chart_data)
-
-# ==================== LOGS & DEBUG PAGE ====================
-elif page == "📜 Logs & Debug":
-    st.markdown('<p class="main-header">📜 Logs & Debug Information</p>', unsafe_allow_html=True)
-    
-    data = get_dashboard_data()
-    if not data:
-        st.stop()
-    
-    tab1, tab2, tab3 = st.tabs(["❌ Agent Errors", "📡 Recent Events", "🔧 Debug Tools"])
-    
-    with tab1:
-        error_agents = [a for a in data['agents'] if a['status'] == 'error']
-        offline_agents = [a for a in data['agents'] if a['status'] == 'offline']
-        
-        if error_agents:
-            st.error(f"⚠️ {len(error_agents)} agent(s) in ERROR state")
-            for agent in error_agents:
-                st.write(f"🔴 {agent['avatar']} {agent['name']}")
-        else:
-            st.success("✅ No agents in error state")
-        
-        if offline_agents:
-            st.warning(f"⚠️ {len(offline_agents)} agent(s) OFFLINE")
-    
-    with tab2:
-        events = st.session_state.tracker.get_recent_events(50)
-        for event in events:
-            ts = event['timestamp'].split('T')[1][:12] if 'T' in event['timestamp'] else event['timestamp'][:12]
-            st.text(f"[{ts}] {event['type']}: {event['from_agent']} - {event['content'][:60]}...")
+                    else:
+                        # Regular chat with thinking animation
+                        st.session_state.thinking_agents.add('manager')
+                        with st.spinner("🧠 Manager is thinking..."):
+                            response = st.session_state.orchestrator.chat_with_agent_sync('Manager', msg, timeout=30)
+                        st.session_state.thinking_agents.discard('manager')
+                        
+                        if response:
+                            st.session_state.manager_chat.append({"role": "agent", "content": response})
+                        else:
+                            st.session_state.manager_chat.append({"role": "agent", "content": "❌ I didn't get a response. I may be overloaded or having issues."})
+                        st.rerun()
     
     with tab3:
-        if st.button("🔄 Refresh All Data"):
-            st.rerun()
-        if st.button("📊 Show System Stats"):
-            st.json(resource_monitor.get_system_summary())
-
-# ==================== SYSTEM PAGE ====================
-elif page == "⚙️ System":
-    st.markdown('<p class="main-header">⚙️ System Status</p>', unsafe_allow_html=True)
+        st.subheader("➕ Create New Agent")
+        st.markdown("Need a specialist that doesn't exist? Create one!")
+        
+        create_tab1, create_tab2 = st.tabs(["📋 From Template", "✨ Custom"])
+        
+        with create_tab1:
+            templates = agent_factory.list_templates()
+            
+            st.markdown("**Choose a template:**")
+            
+            cols = st.columns(3)
+            for idx, (key, label) in enumerate(templates.items()):
+                with cols[idx % 3]:
+                    with st.expander(f"{label}"):
+                        template = agent_factory.TEMPLATES[key]
+                        st.write(f"**Model:** {template.model}")
+                        st.write(f"**Skills:** {', '.join(template.skills[:3])}...")
+                        
+                        name = st.text_input(f"Name for {key}", key=f"template_name_{key}", placeholder=f"e.g., {template.role.split()[0]}")
+                        if st.button(f"🚀 Create {key.replace('_', ' ').title()}", key=f"create_{key}"):
+                            if name:
+                                if agent_factory.agent_exists(name):
+                                    st.error(f"❌ An agent named '{name}' already exists")
+                                else:
+                                    with st.spinner(f"Creating {name}..."):
+                                        soul_path = agent_factory.create_agent_from_template(key, name)
+                                        if soul_path:
+                                            # Auto-spawn
+                                            result = st.session_state.orchestrator.spawn_agent(soul_path.parent.name)
+                                            if result:
+                                                resource_monitor.register_agent(result.id, result.name)
+                                                st.success(f"✅ Created and spawned {name}!")
+                                                time.sleep(1)
+                                                st.rerun()
+                                        else:
+                                            st.error("❌ Failed to create agent")
+        
+        with create_tab2:
+            st.markdown("**Create a completely custom agent:**")
+            
+            with st.form("custom_agent_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    name = st.text_input("Agent Name *", placeholder="e.g., Atlas")
+                    role = st.text_input("Role/Title *", placeholder="e.g., Data Visualization Specialist")
+                    avatar = st.text_input("Avatar (emoji) *", value="🤖")
+                with col2:
+                    model = st.selectbox("Model", ["qwen3.5:9b", "dolphin3", "gemma3", "qwen3-coder"])
+                    temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1)
+                
+                essence = st.text_area("Essence/Personality *", 
+                    placeholder="Describe who this agent is and how they approach their work...")
+                
+                skills_text = st.text_area("Skills (one per line) *",
+                    placeholder="e.g.,\nData visualization\nPython programming\nStatistical analysis")
+                
+                submitted = st.form_submit_button("✨ Create Custom Agent", type="primary")
+                
+                if submitted:
+                    if not all([name, role, essence, skills_text]):
+                        st.error("Please fill in all required fields")
+                    elif agent_factory.agent_exists(name):
+                        st.error(f"An agent named '{name}' already exists")
+                    else:
+                        skills = [s.strip() for s in skills_text.split('\n') if s.strip()]
+                        with st.spinner(f"Creating {name}..."):
+                            soul_path = agent_factory.create_custom_agent(
+                                name=name, role=role, avatar=avatar, essence=essence,
+                                skills=skills, model=model, temperature=temperature
+                            )
+                            if soul_path:
+                                # Auto-spawn
+                                result = st.session_state.orchestrator.spawn_agent(soul_path.parent.name)
+                                if result:
+                                    resource_monitor.register_agent(result.id, result.name)
+                                    st.success(f"✅ Created and spawned {name}!")
+                                    st.info(f"📁 Soul file: {soul_path}")
+                                    time.sleep(2)
+                                    st.rerun()
+                            else:
+                                st.error("❌ Failed to create agent")
     
+    with tab4:
+        st.subheader("🎯 Quick Actions")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("**⚡ Spawn Squads**")
+            squads = {
+                "🎯 Sales": ['hunter', 'pepper', 'sage'],
+                "🎨 Creative": ['quill', 'pixel', 'shuri'],
+                "💻 Dev": ['code', 'guardian', 'wong'],
+                "🔬 Research": ['scout', 'sage', 'shuri']
+            }
+            for name, agents in squads.items():
+                if st.button(f"Spawn {name}", key=f"squad_{name}"):
+                    for agent_name in agents:
+                        result = st.session_state.orchestrator.spawn_agent(agent_name)
+                        if result:
+                            resource_monitor.register_agent(result.id, result.name)
+                    st.success(f"✅ Spawned {name} squad!")
+                    time.sleep(1)
+                    st.rerun()
+        
+        with col2:
+            st.markdown("**🔄 Global Actions**")
+            if st.button("Respawn All", key="respawn_all"):
+                names = [a['name'].lower() for a in data['agents']]
+                for agent in data['agents']:
+                    st.session_state.orchestrator.kill_agent(agent['id'])
+                time.sleep(0.5)
+                for name in names:
+                    result = st.session_state.orchestrator.spawn_agent(name)
+                    if result:
+                        resource_monitor.register_agent(result.id, result.name)
+                st.success("✅ All agents respawned!")
+                time.sleep(1)
+                st.rerun()
+            
+            if st.button("Kill All", key="kill_all"):
+                for agent in data['agents']:
+                    st.session_state.orchestrator.kill_agent(agent['id'])
+                    resource_monitor.unregister_agent(agent['id'])
+                st.warning("🛑 All agents stopped")
+                time.sleep(1)
+                st.rerun()
+        
+        with col3:
+            st.markdown("**📊 System**")
+            if st.button("🔄 Refresh Data"):
+                st.rerun()
+            
+            sys_res = resource_monitor.get_system_summary()
+            st.text(f"Agents: {sys_res.get('total_agents', 0)}")
+            st.text(f"Memory: {sys_res.get('system_memory_percent', 0):.1f}%")
+            st.text(f"CPU: {sys_res.get('system_cpu_percent', 0):.1f}%")
+
+# ==================== OTHER PAGES ====================
+# (Dashboard, Chat, Agents, Missions, Analytics, Logs, System pages...)
+
+elif page == "🏠 Dashboard":
+    st.markdown('<p class="main-header">🏠 Dashboard</p>', unsafe_allow_html=True)
     data = get_dashboard_data()
-    if not data:
+    if data:
+        st.json({"agents": len(data['agents']), "missions": len(data['missions'])})
+
+elif page == "💬 Chat":
+    st.markdown('<p class="main-header">💬 Chat with Agents</p>', unsafe_allow_html=True)
+    data = get_dashboard_data()
+    if not data or not data['agents']:
+        st.warning("No agents available!")
         st.stop()
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("🔗 Ollama")
-        if data['system']['ollama_connected']:
-            st.success("🟢 Connected")
-        else:
-            st.error("🔴 Disconnected")
+    # Agent selector
+    agent_options = {a['id']: f"{a['avatar']} {a['name']}" for a in data['agents']}
+    selected_id = st.selectbox("Select Agent", options=list(agent_options.keys()), 
+                              format_func=lambda x: agent_options[x])
+    selected_agent = next((a for a in data['agents'] if a['id'] == selected_id), None)
     
-    with col2:
-        st.subheader("📦 Version")
-        st.write(f"**Workspace:** v1.4.0")
+    if selected_agent:
+        st.subheader(f"Chat with {selected_agent['name']}")
+        
+        # Initialize chat history
+        if selected_id not in st.session_state.chat_history:
+            st.session_state.chat_history[selected_id] = []
+        
+        # Show thinking indicator at top if working
+        if selected_agent['status'] == 'working':
+            render_thinking_indicator(selected_agent['name'], 
+                f"working on: {selected_agent.get('current_task', 'task')[:40]}...")
+        
+        # Display chat
+        for msg in st.session_state.chat_history[selected_id]:
+            if msg['role'] == 'user':
+                st.markdown(f"<div class='chat-message-user'><b>You:</b><br>{msg['content']}</div><div style='clear:both'></div>", 
+                          unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='chat-message-agent'><b>{selected_agent['name']}:</b><br>{msg['content']}</div><div style='clear:both'></div>", 
+                          unsafe_allow_html=True)
+        
+        # Input
+        with st.form("chat_form", clear_on_submit=True):
+            message = st.text_input("Your message")
+            submitted = st.form_submit_button("Send 📤")
+            
+            if submitted and message:
+                st.session_state.chat_history[selected_id].append({"role": "user", "content": message})
+                
+                # Show thinking animation
+                st.session_state.thinking_agents.add(selected_agent['name'])
+                
+                with st.spinner(f"🧠 {selected_agent['name']} is thinking..."):
+                    # Add animated dots during thinking
+                    response = st.session_state.orchestrator.chat_with_agent_sync(
+                        selected_agent['name'], message, timeout=30
+                    )
+                
+                st.session_state.thinking_agents.discard(selected_agent['name'])
+                
+                if response:
+                    st.session_state.chat_history[selected_id].append({"role": "agent", "content": response})
+                else:
+                    st.error("❌ No response - agent may be stuck")
+                st.rerun()
+
+elif page == "🤖 Agents":
+    st.markdown('<p class="main-header">🤖 Agent Control</p>', unsafe_allow_html=True)
+    data = get_dashboard_data()
+    if data:
+        for agent in data['agents']:
+            with st.expander(f"{agent['avatar']} {agent['name']} - {agent['status']}"):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write(f"**Role:** {agent['role']}")
+                    st.write(f"**Tasks:** {agent['tasks_completed']}")
+                with col2:
+                    if st.button("🔄 Respawn", key=f"respawn_{agent['id']}"):
+                        st.session_state.orchestrator.kill_agent(agent['id'])
+                        time.sleep(0.5)
+                        result = st.session_state.orchestrator.spawn_agent(agent['name'].lower())
+                        if result:
+                            resource_monitor.register_agent(result.id, result.name)
+                            st.success(f"{agent['name']} respawned!")
+                            time.sleep(1)
+                            st.rerun()
+                with col3:
+                    if st.button("🛑 Kill", key=f"kill_{agent['id']}"):
+                        st.session_state.orchestrator.kill_agent(agent['id'])
+                        resource_monitor.unregister_agent(agent['id'])
+                        st.warning(f"{agent['name']} killed")
+                        time.sleep(1)
+                        st.rerun()
+
+elif page == "📋 Missions":
+    st.markdown('<p class="main-header">📋 Missions</p>', unsafe_allow_html=True)
+    st.info("Use the Manager (🎩 Manager page) to create and manage missions with full visibility!")
+
+elif page == "📊 Analytics":
+    st.markdown('<p class="main-header">📊 Analytics</p>', unsafe_allow_html=True)
+    st.info("Analytics visualization coming soon. Check the Manager page for live status!")
+
+elif page == "📜 Logs":
+    st.markdown('<p class="main-header">📜 Logs</p>', unsafe_allow_html=True)
+    events = tracker.get_recent_events(50)
+    for event in events[:20]:
+        ts = event['timestamp'].split('T')[1][:8] if 'T' in event['timestamp'] else ''
+        st.text(f"[{ts}] {event['type']}: {event['from_agent']}")
+
+elif page == "⚙️ System":
+    st.markdown('<p class="main-header">⚙️ System</p>', unsafe_allow_html=True)
+    st.write("**Workspace v1.5.0**")
+    st.write("Features: Manager Overseer, Dynamic Agent Creation, Resource Monitoring")
 
 # Footer
 st.sidebar.divider()
-st.sidebar.markdown(f"**Workspace v1.4.0** 🎯")
+st.sidebar.markdown(f"**Workspace v1.5.0** 🎩")
 st.sidebar.markdown(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
