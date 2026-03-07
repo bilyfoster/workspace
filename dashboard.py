@@ -186,6 +186,9 @@ if 'resource_monitor' not in st.session_state:
     resource_monitor.start_monitoring(interval=5.0)
 if 'agent_factory' not in st.session_state:
     st.session_state.agent_factory = agent_factory
+if 'explicit_handoff' not in st.session_state:
+    from shared.explicit_handoff import get_explicit_handoff_manager
+    st.session_state.explicit_handoff = get_explicit_handoff_manager(st.session_state.orchestrator)
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'page' not in st.session_state:
@@ -899,6 +902,83 @@ def render_logs():
             st.write(f"Registered queues: {len(bus._agent_queues)}")
             st.write(f"Message history: {len(bus._message_history)}")
 
+def render_handoffs():
+    """Explicit handoffs page (Swarm-style)"""
+    if st.button("← Back to Dashboard"):
+        st.session_state.page = "dashboard"
+        st.rerun()
+    
+    st.header("🔄 Explicit Handoffs")
+    st.markdown("Swarm-style function-based agent handoffs")
+    
+    handoff_mgr = st.session_state.explicit_handoff
+    
+    # Pending handoffs
+    st.subheader("⏳ Pending Handoffs")
+    pending = handoff_mgr.get_pending()
+    if pending:
+        for h in pending:
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.write(f"**{h.from_agent}** → **{h.to_agent}**")
+                st.caption(f"Type: {h.handoff_type.value}")
+                if h.context.get('task'):
+                    st.write(f"Task: {h.context['task'][:50]}...")
+            with col2:
+                if st.button("✅ Execute", key=f"exec_{h.id}"):
+                    handoff_mgr.execute_handoff(h.id)
+                    st.success("Executed!")
+                    st.rerun()
+            with col3:
+                if st.button("❌ Reject", key=f"reject_{h.id}"):
+                    handoff_mgr.reject_handoff(h.id)
+                    st.rerun()
+    else:
+        st.info("No pending handoffs")
+    
+    st.divider()
+    
+    # Recent handoffs
+    st.subheader("📜 Recent Handoffs")
+    recent = handoff_mgr.get_recent(10)
+    if recent:
+        for h in reversed(recent):
+            icon = "✅" if h.status == "completed" else "❌" if h.status == "rejected" else "⏳"
+            st.write(f"{icon} {h.from_agent} → {h.to_agent} ({h.status})")
+    else:
+        st.info("No handoffs yet")
+    
+    st.divider()
+    
+    # How to use
+    with st.expander("How to Use Explicit Handoffs"):
+        st.markdown("""
+        Agents can trigger handoffs by including specific patterns in their responses:
+        
+        **Patterns detected:**
+        - `[handoff:agent_name]` - Explicit handoff tag
+        - `[transfer to agent_name]` - Alternative syntax
+        - "handoff to agent_name" - Natural language
+        
+        **Example:**
+        ```
+        I've completed the design mockup. [handoff:code] 
+        Code can now implement the frontend.
+        ```
+        
+        This will:
+        1. Detect the handoff request
+        2. Spawn Code if not running
+        3. Pass context to Code
+        4. Notify both agents
+        
+        **vs Manager Orchestration:**
+        - **Explicit handoffs**: Agents decide when to transfer (Swarm-style)
+        - **Manager orchestration**: Manager decides who does what (our style)
+        
+        Both work together - use whichever fits your workflow!
+        """)
+
 # ==================== MAIN APP ====================
 
 # Debug: Log current state
@@ -935,6 +1015,10 @@ with st.sidebar:
         st.session_state.page = "logs"
         st.rerun()
     
+    if st.button("🔄 Handoffs", use_container_width=True):
+        st.session_state.page = "handoffs"
+        st.rerun()
+    
     st.markdown("---")
     
     if st.button("🚀 Spawn Manager", use_container_width=True):
@@ -957,3 +1041,5 @@ elif st.session_state.page == "missions":
     render_missions()
 elif st.session_state.page == "logs":
     render_logs()
+elif st.session_state.page == "handoffs":
+    render_handoffs()

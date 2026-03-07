@@ -256,6 +256,10 @@ Guidelines:
         elif message.type == MessageType.USER_MESSAGE.value:
             # User is messaging us directly
             response = self._chat(message.payload.get('content', ''))
+            
+            # Check if agent wants to handoff (Swarm-style)
+            self._check_for_explicit_handoff(response, message)
+            
             self.bus.publish(Message.create(
                 MessageType.AGENT_MESSAGE,
                 sender=self.id,
@@ -423,3 +427,41 @@ Please review this handoff and acknowledge that you understand the task and can 
             logger.info(f"Handoff was accepted by {message.sender}")
         else:
             logger.warning(f"Handoff was rejected: {payload.get('reason')}")
+    
+    def _check_for_explicit_handoff(self, response: str, original_message: Message):
+        """
+        Check if agent's response contains an explicit handoff request (Swarm-style)
+        
+        Patterns detected:
+        - [handoff:agent_name]
+        - [transfer to agent_name]
+        - "handoff to agent_name"
+        """
+        from shared.explicit_handoff import get_explicit_handoff_manager, HandoffType
+        
+        handoff_mgr = get_explicit_handoff_manager()
+        handoff = handoff_mgr.check_for_handoff(self.name, response)
+        
+        if handoff:
+            logger.info(f"Detected explicit handoff: {self.name} → {handoff.to_agent}")
+            
+            # Add context from current task if any
+            if self.current_task:
+                handoff.context['current_task'] = self.current_task
+            
+            # Notify via message bus
+            self.bus.publish(Message.create(
+                MessageType.HANDOFF_REQUEST,
+                sender=self.id,
+                payload={
+                    'handoff_id': handoff.id,
+                    'from_agent': self.name,
+                    'to_agent': handoff.to_agent,
+                    'context': handoff.context,
+                    'type': 'explicit'
+                },
+                correlation_id=original_message.correlation_id
+            ))
+            
+            # Auto-execute the handoff
+            handoff_mgr.execute_handoff(handoff.id)
