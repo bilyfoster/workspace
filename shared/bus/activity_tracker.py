@@ -178,13 +178,15 @@ class ActivityTracker:
     
     def _on_agent_message(self, message: Message):
         """Agent-to-agent message"""
+        # Store full content - truncation happens in display, not storage
+        content = message.payload.get('content', '')
         event = ActivityEvent(
             id=message.id,
             timestamp=message.timestamp,
             type="agent_message",
             from_agent=message.sender,
             to_agent=message.recipient,
-            content=message.payload.get('content', '')[:100],
+            content=content,  # Full content, not truncated
             mission_id=message.correlation_id,
             metadata=message.payload
         )
@@ -198,7 +200,7 @@ class ActivityTracker:
             type="user_message",
             from_agent="user",
             to_agent=message.recipient,
-            content=message.payload.get('content', '')[:100],
+            content=message.payload.get('content', ''),  # Full content
             mission_id=message.correlation_id,
             metadata={}
         )

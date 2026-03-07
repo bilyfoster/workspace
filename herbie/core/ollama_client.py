@@ -67,6 +67,7 @@ class OllamaClient:
             "stream": stream,
             "options": {
                 "temperature": temperature,
+                "num_predict": 4096,  # Allow longer responses (default is often 128)
                 **kwargs
             }
         }
