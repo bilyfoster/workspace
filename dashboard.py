@@ -517,16 +517,56 @@ elif page == "🤖 Spawn Agents":
     st.subheader("👥 Current Squad")
     
     if data['agents']:
-        cols = st.columns(min(len(data['agents']), 4))
-        for idx, agent in enumerate(data['agents']):
-            with cols[idx % 4]:
-                status_emoji = "🟢" if agent['status'] == 'idle' else "🔵" if agent['status'] == 'working' else "⚪"
-                st.markdown(f"""
-                **{agent['avatar']} {agent['name']}** {status_emoji}
-                <br><small>{agent['role']}</small>
-                <br><small>Status: {agent['status']}</small>
-                <br><small>Thread: {'✅' if agent.get('thread_alive') else '❌'}</small>
-                """, unsafe_allow_html=True)
+        # Management controls
+        st.write("**Agent Management:**")
+        
+        for agent in data['agents']:
+            status_emoji = "🟢" if agent['status'] == 'idle' else "🔵" if agent['status'] == 'working' else "🔴" if agent['status'] == 'error' else "⚪"
+            thread_status = "✅" if agent.get('thread_alive') else "❌"
+            
+            with st.expander(f"{agent['avatar']} {agent['name']} {status_emoji} (Thread: {thread_status})"):
+                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                
+                with col1:
+                    st.write(f"**Role:** {agent['role']}")
+                    st.write(f"**Status:** {agent['status']}")
+                    st.write(f"**Tasks:** {agent['tasks_completed']}")
+                
+                with col2:
+                    if st.button("🔄 Respawn", key=f"respawn_{agent['id']}"):
+                        with st.spinner(f"Respawning {agent['name']}..."):
+                            # Kill old
+                            st.session_state.orchestrator.kill_agent(agent['id'])
+                            time.sleep(1)
+                            # Spawn new
+                            result = st.session_state.orchestrator.spawn_agent(agent['name'].lower())
+                            if result:
+                                st.success(f"✅ {agent['name']} respawned!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Failed to respawn")
+                
+                with col3:
+                    if st.button("🛑 Kill", key=f"kill_{agent['id']}"):
+                        st.session_state.orchestrator.kill_agent(agent['id'])
+                        st.warning(f"🛑 {agent['name']} killed")
+                        time.sleep(1)
+                        st.rerun()
+                
+                with col4:
+                    if st.button("💬 Chat", key=f"chat_{agent['id']}"):
+                        st.info(f"👈 Go to '💬 Chat 1-on-1' to talk to {agent['name']}")
+        
+        # Kill All button
+        st.divider()
+        if st.button("🛑 Kill All Agents", type="secondary"):
+            for agent in data['agents']:
+                st.session_state.orchestrator.kill_agent(agent['id'])
+            st.warning("🛑 All agents killed")
+            time.sleep(1)
+            st.rerun()
+            
     else:
         st.info("No agents running yet. Spawn some below!")
     
