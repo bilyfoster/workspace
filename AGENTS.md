@@ -1,7 +1,13 @@
-# Workspace v1.3.0 - Agent Documentation
+# Workspace v1.4.0 - Agent Documentation
 
 ## Overview
 The Workspace is a multi-agent AI orchestration system running on macOS bare metal with Ollama local LLMs. It uses thread-based agents (not processes) for shared memory access.
+
+**New in v1.4.0:**
+- Per-agent resource monitoring (CPU, memory)
+- Individual agent management controls
+- Better status icons and activity indicators
+- Agent health checking with ping functionality
 
 ## Architecture
 
@@ -38,7 +44,16 @@ Each agent has a `soul.md` file defining:
 
 ## Dashboard Pages
 
-1. **Dashboard** - System overview, agent status
+1. **Dashboard** - System overview, agent status with resource usage
+2. **Chat 1-on-1** - Individual agent chat with health check
+3. **Group Chat** - Multi-agent discussions  
+4. **Agent Control** - Individual agent management (NEW: spawn/kill/ping per agent)
+5. **Missions** - Task board with parallel execution
+6. **Handoffs** - Manual/auto handoff management
+7. **Alerts** - System notifications
+8. **Analytics** - Activity tracking and resource charts
+9. **Logs & Debug** - Debug and error logs
+10. **System** - Settings and configuration
 2. **Chat** - 1-on-1 agent conversations (30s timeout)
 3. **Group Chat** - Multi-agent discussions
 4. **Spawn Agents** - Agent management (respawn/kill)
@@ -49,7 +64,7 @@ Each agent has a `soul.md` file defining:
 9. **Logs** - Debug and error logs
 10. **System** - Settings and configuration
 
-## Key Features (v1.3.0)
+## Key Features (v1.4.0)
 
 ### Parallel Task Execution
 ```python
@@ -57,10 +72,11 @@ orchestrator.execute_mission_parallel(mission_id)
 # Runs all pending tasks concurrently with ThreadPoolExecutor
 ```
 
-### Persistent Chat History
-- Saved to `./chat_history/{agent_id}.json`
-- Survives Workspace restarts
-- Export to Markdown available
+### Resource Monitoring
+- Real-time CPU and memory tracking per agent
+- System-wide resource summary
+- Resource usage charts in Analytics
+- Visual resource bars in Dashboard
 
 ### Mission Export
 - Markdown format: `./exports/Mission_Name_YYYYMMDD_HHMMSS.md`
@@ -174,7 +190,8 @@ WORKSPACE_DATA_DIR=./data
 
 ## Version History
 
-- **v1.3.0** (Current): MVP Complete - Parallel execution, exports, handoffs
+- **v1.4.0** (Current): Resource monitoring, individual agent controls, better UX
+- **v1.3.0**: MVP Complete - Parallel execution, exports, handoffs
 - **v1.2.0**: Thread-based agents, persistent chat
 - **v1.1.0**: Mission system, basic task execution
 - **v1.0.0**: Initial release, single agent chat
