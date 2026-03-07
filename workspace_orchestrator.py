@@ -32,6 +32,8 @@ from shared.bus.auto_handoff import auto_handoff, AutoHandoffDetector
 from shared.bus.group_chat import group_chat_manager, GroupChatManager
 from shared.bus.alerts import alert_manager, AlertManager
 from shared.bus.analytics import analytics, AnalyticsCollector
+from shared.bus.auto_executor import AutoExecutor, get_auto_executor
+from shared.chat_history import chat_history, ChatHistoryManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,6 +79,8 @@ class WorkspaceOrchestrator:
         self.group_chat = group_chat_manager
         self.alerts = alert_manager
         self.analytics = analytics
+        self.auto_executor = get_auto_executor(self)
+        self.chat_history = chat_history
         
         # Agent threads (not processes - shared memory for MessageBus)
         self.agents: Dict[str, AgentThread] = {}
@@ -371,12 +375,14 @@ class WorkspaceOrchestrator:
             payload={"content": message}
         )
         
+        # Save user message to history
+        self.chat_history.save_message(agent.id, agent.name, "user", message)
+        
         if not self.bus.send_to_agent(agent.id, msg):
             return None
         
         # Wait for response by polling activity tracker
         start_time = time.time()
-        last_count = len(self.tracker.get_agent_activity(agent.id, limit=1))
         
         while time.time() - start_time < timeout:
             # Check for new activity from this agent
@@ -386,6 +392,8 @@ class WorkspaceOrchestrator:
                 if event['type'] == 'agent_message' and event['to_agent'] == 'user':
                     # Found a response to user
                     if event['timestamp'] > datetime.fromtimestamp(start_time).isoformat():
+                        # Save agent response to history
+                        self.chat_history.save_message(agent.id, agent.name, "agent", event['content'])
                         return event['content']
             
             time.sleep(0.5)
@@ -437,6 +445,42 @@ class WorkspaceOrchestrator:
         
         logger.info(f"Created mission '{title}' with {len(tasks)} tasks")
         return mission
+    
+    def execute_mission_auto(self, mission_id: str, parallel: bool = True) -> bool:
+        """
+        Execute a mission automatically
+        
+        Args:
+            mission_id: Mission to execute
+            parallel: Whether to run tasks in parallel
+            
+        Returns:
+            True if execution started
+        """
+        if parallel:
+            self.auto_executor.execute_mission_parallel(mission_id)
+        return True
+    
+    def export_mission(self, mission_id: str, format: str = "markdown") -> Optional[Path]:
+        """
+        Export mission results to file
+        
+        Args:
+            mission_id: Mission to export
+            format: 'markdown' or 'json'
+            
+        Returns:
+            Path to exported file or None
+        """
+        try:
+            return self.auto_executor.export_mission_results(mission_id, format)
+        except Exception as e:
+            logger.error(f"Export failed: {e}")
+            return None
+    
+    def get_running_executions(self) -> List[str]:
+        """Get list of currently running mission executions"""
+        return self.auto_executor.get_running_missions()
     
     def get_dashboard_data(self) -> Dict[str, Any]:
         """Get all data needed for dashboard"""

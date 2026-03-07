@@ -328,13 +328,38 @@ elif page == "💬 Chat 1-on-1":
     with col2:
         st.subheader("💬 Conversation")
         
-        # Initialize chat history for this agent
+        # Load persistent chat history
+        if selected_agent_id:
+            persistent_history = st.session_state.orchestrator.chat_history.load_history(selected_agent_id)
+            if persistent_history:
+                # Convert to session format
+                st.session_state.chat_history[selected_agent_id] = [
+                    {
+                        "role": msg.role,
+                        "content": msg.content,
+                        "timestamp": msg.timestamp
+                    }
+                    for msg in persistent_history
+                ]
+        
+        # Initialize chat history for this agent if not loaded
         if selected_agent_id not in st.session_state.chat_history:
             st.session_state.chat_history[selected_agent_id] = []
         
         # Display chat
         chat_container = st.container()
         with chat_container:
+            # Add export button
+            if st.session_state.chat_history[selected_agent_id]:
+                if st.button("📥 Export Chat", key=f"export_chat_{selected_agent_id}"):
+                    export_path = st.session_state.orchestrator.chat_history.export_chat(
+                        selected_agent_id, "markdown"
+                    )
+                    if export_path:
+                        st.success(f"✅ Exported to: {export_path}")
+                    else:
+                        st.error("❌ Export failed")
+            
             if not st.session_state.chat_history[selected_agent_id]:
                 st.info("👋 Start a conversation! Type a message below or use Quick Prompts.")
             else:
@@ -688,6 +713,42 @@ elif page == "📋 Missions":
                         st.metric("Tasks", f"{mission['progress']['completed']}/{mission['progress']['total']}")
                     with col3:
                         st.metric("Progress", f"{mission['progress']['percent']}%")
+                    
+                    # Auto-execute button
+                    if mission['status'] == 'active' and mission['progress']['percent'] < 100:
+                        col_a, col_b, col_c = st.columns(3)
+                        with col_a:
+                            if st.button("🚀 Auto-Execute All", key=f"auto_{mission['id']}"):
+                                with st.spinner("Starting auto-execution..."):
+                                    st.session_state.orchestrator.execute_mission_auto(mission['id'], parallel=True)
+                                st.success("✅ Execution started! Tasks will run in parallel.")
+                                time.sleep(1)
+                                st.rerun()
+                        
+                        with col_b:
+                            running = st.session_state.orchestrator.get_running_executions()
+                            if mission['id'] in running:
+                                st.info("⏳ Running...")
+                        
+                        with col_c:
+                            pass  # Spacer
+                    
+                    # Export button
+                    if mission['progress']['completed'] > 0:
+                        if st.button("📥 Export Results", key=f"export_{mission['id']}"):
+                            with st.spinner("Exporting..."):
+                                export_path = st.session_state.orchestrator.export_mission(mission['id'], "markdown")
+                                if export_path:
+                                    st.success(f"✅ Exported to: {export_path}")
+                                    # Show file content preview
+                                    try:
+                                        content = export_path.read_text()
+                                        with st.expander("📄 Preview Export"):
+                                            st.markdown(content[:2000] + "..." if len(content) > 2000 else content)
+                                    except:
+                                        pass
+                                else:
+                                    st.error("❌ Export failed")
                     
                     # Tasks
                     st.subheader("Tasks")
