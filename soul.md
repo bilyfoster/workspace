@@ -2,7 +2,7 @@
 
 ## Core Identity
 **Name:** Workspace  
-**Version:** 1.1.2  
+**Version:** 1.1.3  
 **Codename:** Mission Control  
 **Created:** 2026-03-07  
 **Last Updated:** 2026-03-07  
@@ -18,6 +18,12 @@ Our north star: **True agent collaboration through handoffs, transparency throug
 ---
 
 ## Version History
+
+### v1.1.3 (2026-03-07)
+**Bug Fixes:**
+- Fixed mission creation form - checkbox was after submit button
+- Added proper form validation with error messages
+- Fixed Streamlit widget ordering issue
 
 ### v1.1.2 (2026-03-07)
 **Bug Fixes:**

@@ -771,24 +771,36 @@ elif page == "➕ Create Mission":
             if task_desc:
                 tasks.append({"description": task_desc, "assigned_to": None if assigned == "Auto" else assigned})
         
+        # Checkbox must be BEFORE submit button in Streamlit forms
+        create_group = st.checkbox("Create group chat for this mission", key="create_group_chat")
+        
         submitted = st.form_submit_button("🚀 Launch Mission", type="primary")
         
-        if submitted and title and tasks:
-            mission = st.session_state.orchestrator.create_mission(
-                title=title, description=description, tasks=tasks
-            )
-            
-            # Optionally create a group chat for this mission
-            if st.checkbox("Create group chat for this mission"):
-                agent_names = [t['assigned_to'] for t in tasks if t['assigned_to']]
-                if agent_names:
-                    st.session_state.group_chat.create_workflow_group(
-                        mission_id=mission.id,
-                        mission_title=title,
-                        agents=agent_names
+        if submitted:
+            if not title:
+                st.error("Please enter a mission title")
+            elif not tasks:
+                st.error("Please add at least one task")
+            else:
+                try:
+                    mission = st.session_state.orchestrator.create_mission(
+                        title=title, description=description, tasks=tasks
                     )
-            
-            st.success(f"Mission created: {mission.id}")
+                    
+                    # Create group chat if requested
+                    if create_group:
+                        agent_names = [t['assigned_to'] for t in tasks if t['assigned_to']]
+                        if agent_names:
+                            st.session_state.group_chat.create_workflow_group(
+                                mission_id=mission.id,
+                                mission_title=title,
+                                agents=agent_names
+                            )
+                    
+                    st.success(f"✅ Mission created: {mission.id}")
+                    st.info("Go to '📋 Missions' tab to view and execute tasks")
+                except Exception as e:
+                    st.error(f"Error creating mission: {str(e)}")
 
 # ============== SYSTEM PAGE ==============
 elif page == "⚙️ System":
