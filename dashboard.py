@@ -331,32 +331,75 @@ def render_dashboard():
     # Chat container
     st.markdown("---")
     
-    # Display messages - using default avatars (no custom emoji to avoid errors)
+    # Custom chat display (no st.chat_message to avoid default avatars)
+    chat_html = []
+    chat_html.append("<div style='max-width: 800px; margin: 0 auto;'>")
+    
     for msg in st.session_state.messages:
         if msg['role'] == 'user':
-            with st.chat_message("user"):
-                st.write(msg['content'])
+            # User message - right aligned, blue
+            chat_html.append(f"""
+            <div style='display: flex; justify-content: flex-end; margin: 12px 0;'>
+                <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                           color: white; padding: 12px 16px; border-radius: 18px 18px 4px 18px; 
+                           max-width: 70%; box-shadow: 0 2px 8px rgba(102,126,234,0.3);'>
+                    <div style='font-size: 0.8em; opacity: 0.9; margin-bottom: 4px;'>You</div>
+                    {msg['content']}
+                </div>
+            </div>
+            """)
         else:
-            with st.chat_message("assistant"):
-                avatar = msg.get('avatar', '🤖')
-                name = msg.get('name', 'Agent')
-                st.write(f"{avatar} **{name}:** {msg['content']}")
+            # Agent message - left aligned, gray
+            avatar = msg.get('avatar', '🤖')
+            name = msg.get('name', 'Agent')
+            chat_html.append(f"""
+            <div style='display: flex; justify-content: flex-start; margin: 12px 0;'>
+                <div style='background: #f8f9fa; border: 1px solid #e9ecef; 
+                           color: #212529; padding: 12px 16px; border-radius: 18px 18px 18px 4px; 
+                           max-width: 70%; box-shadow: 0 2px 4px rgba(0,0,0,0.05);'>
+                    <div style='font-size: 0.8em; color: #667eea; margin-bottom: 4px;'>
+                        {avatar} {name}
+                    </div>
+                    {msg['content']}
+                </div>
+            </div>
+            """)
     
-    # Thinking indicator with animation
+    # Thinking indicator with moon phases
     if st.session_state.thinking:
-        with st.chat_message("assistant"):
-            st.markdown("""
-            🧠 Thinking
-            <span style="animation: pulse 1s infinite; display: inline-block;">●</span>
-            <span style="animation: pulse 1s infinite 0.2s; display: inline-block;">●</span>
-            <span style="animation: pulse 1s infinite 0.4s; display: inline-block;">●</span>
-            <style>
-                @keyframes pulse {
-                    0%, 100% { opacity: 0.3; }
-                    50% { opacity: 1; }
-                }
-            </style>
-            """, unsafe_allow_html=True)
+        chat_html.append("""
+        <div style='display: flex; justify-content: flex-start; margin: 12px 0;'>
+            <div style='background: #e3f2fd; border: 2px solid #2196f3; 
+                       color: #1565c0; padding: 12px 20px; border-radius: 18px; 
+                       box-shadow: 0 2px 8px rgba(33,150,243,0.2);
+                       display: flex; align-items: center; gap: 10px;'>
+                <span>Processing</span>
+                <span class='thinking-dot'></span>
+                <span class='thinking-dot'></span>
+                <span class='thinking-dot'></span>
+            </div>
+        </div>
+        <style>
+            @keyframes pulse-dot {
+                0%, 100% { opacity: 0.3; transform: scale(0.8); }
+                50% { opacity: 1; transform: scale(1.2); }
+            }
+            .thinking-dot {
+                animation: pulse-dot 1.5s infinite;
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                background: #2196f3;
+                border-radius: 50%;
+                margin: 0 3px;
+            }
+            .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+            .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+        </style>
+        """)
+    
+    chat_html.append("</div>")
+    st.markdown("".join(chat_html), unsafe_allow_html=True)
     
     # Input
     message = st.chat_input("Message your team...")
