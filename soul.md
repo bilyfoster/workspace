@@ -2,11 +2,11 @@
 
 ## Core Identity
 **Name:** Workspace  
-**Version:** 1.1.0  
+**Version:** 1.1.1  
 **Codename:** Mission Control  
 **Created:** 2026-03-07  
 **Last Updated:** 2026-03-07  
-**Git Commit:** 40814b8
+**Git Commit:** 006e71b
 
 ---
 
@@ -18,6 +18,22 @@ Our north star: **True agent collaboration through handoffs, transparency throug
 ---
 
 ## Version History
+
+### v1.1.1 (2026-03-07)
+**Features Added:**
+- Mac-friendly setup with setup.sh and install.command
+- Makefile for simple commands (make start/stop/status)
+- QUICKSTART.md guide for 3-step setup
+- Auto-detection of Python and Ollama
+- Colored output and better error messages
+- Native macOS performance optimization
+
+**Changes:**
+- Added setup.sh - Interactive installer
+- Added install.command - Double-clickable launcher
+- Added Makefile - Build commands
+- Updated README.md with Mac-first focus
+- Enhanced requirements.txt for macOS
 
 ### v1.1.0 (2026-03-07)
 **Features Added:**

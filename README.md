@@ -1,245 +1,254 @@
 # 🎯 Workspace
 
-**A local, self-hosted AI Mission Control system.**
+**AI Mission Control for macOS**
 
-Deploy a squad of specialized AI agents — each with their own personality, memory, and soul — working together on any goal. Runs entirely on your hardware using Ollama.
+Deploy a squad of specialized AI agents — each with their own personality, memory, and soul — working together on any goal. Runs entirely on your Mac using Ollama.
 
-> **Built for Herbie** - Your local AI server
+> **Built for Mac users** who want local AI collaboration without the cloud.
 
 ---
 
-## 🌟 What Makes Workspace Different
+## 🚀 Quick Start (3 Steps)
 
-Unlike other systems that just swap prompts, Workspace agents are **full sub-processes** with:
+```bash
+# 1. Clone
+git clone https://github.com/bilyfoster/workspace.git
+cd workspace
 
-- **🧬 soul.md** - Each agent has a manifest defining identity, values, and personality
-- **🧠 Persistent Memory** - Agents remember conversations and learn over time
-- **🔧 True Isolation** - Each agent runs independently (crash one, others keep working)
-- **⚡ Multi-Model** - Hunter can use `dolphin3` (creative) while Code uses `qwen3-coder` (precise)
-- **📡 Activity Monitoring** - See who's talking to whom in real-time
-- **🔄 Agent Handoffs** - Agents collaborate by passing tasks to each other
-- **📊 Mission Control Dashboard** - Trello-style board for monitoring missions
+# 2. Setup (one-time)
+./setup.sh
+
+# 3. Start
+./start.sh
+```
+
+Then open **http://localhost:8501** 🎉
+
+**Even easier:** Double-click `install.command`
+
+---
+
+## 🎥 See It In Action
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🎯 WORKSPACE v1.1.0 - Mission Control Dashboard            │
+├─────────────────────────────────────────────────────────────┤
+│  👥 Active Squad          │  📋 Mission Board                │
+│  🟢 Hunter - Idle         │  ┌─────────┬─────────┬────────┐ │
+│  🔵 Pepper - Working      │  │ 📥 To Do│ 🔵 Doing│ ✅ Done│ │
+│  🟢 Scout - Idle          │  │ Task 1  │ Task 2  │ Task 3 │ │
+│                           │  └─────────┴─────────┴────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ✨ Features
+
+### 🤖 True AI Agents
+- **soul.md** - Each agent has identity, values, and personality
+- **Persistent Memory** - Agents remember conversations
+- **Sub-process Architecture** - Real isolation, not just prompt swapping
+- **Multi-model** - Hunter uses `dolphin3` (creative), Code uses `qwen3-coder` (precise)
+
+### 🔄 Agent Collaboration
+- **Handoffs** - Agents pass work with full context
+- **Group Chats** - Multiple agents in one conversation
+- **Auto-handoffs** - AI detects when to delegate
+
+### 📊 Mission Control
+- **Dashboard** - Trello-style mission boards
+- **Activity Feed** - Real-time event monitoring
+- **Analytics** - Performance charts and metrics
+- **Alerts** - Configurable notifications
+
+### 💻 Mac Native
+- **No Docker** - Direct hardware access
+- **Metal GPU** - Uses Apple's GPU acceleration via Ollama
+- **Simple Scripts** - `./start.sh`, `./stop.sh`, `./status.sh`
+- **Make commands** - `make start`, `make stop`
+
+---
+
+## 🛠️ Installation
+
+### Prerequisites
+
+1. **macOS 10.15+**
+2. **Python 3.9+** (usually pre-installed: `python3 --version`)
+3. **Ollama** - [Download](https://ollama.com/download) or `brew install ollama`
+
+### Option 1: Double-Click (Easiest)
+
+Double-click `install.command` and follow prompts.
+
+### Option 2: Terminal
+
+```bash
+git clone https://github.com/bilyfoster/workspace.git
+cd workspace
+./setup.sh
+```
+
+### Option 3: Make
+
+```bash
+git clone https://github.com/bilyfoster/workspace.git
+cd workspace
+make install
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed setup.
+
+---
+
+## 🎮 Usage
+
+### Start Workspace
+
+```bash
+./start.sh
+# or
+make start
+```
+
+Opens **http://localhost:8501** automatically.
+
+### Daily Commands
+
+```bash
+make start    # Start dashboard
+make stop     # Stop everything
+make status   # Check what's running
+make restart  # Restart
+make update   # Pull latest from GitHub
+```
+
+### First Mission
+
+1. Go to **🤖 Agents** tab
+2. Click **"Spawn Sales Squad"**
+3. Go to **➕ Create Mission**
+4. Enter: *"Launch email campaign for new product"*
+5. Watch Hunter, Pepper, and Scout collaborate!
+
+---
+
+## 👥 Meet Your Squad
+
+| Agent | Role | Specialty | Best For |
+|-------|------|-----------|----------|
+| **Hunter** | 🎯 Sales | Outreach, cold email | Opening doors |
+| **Pepper** | 📧 Marketing | Email campaigns | Converting leads |
+| **Quill** | 📝 Social | Content creation | Engagement |
+| **Scout** | 🔍 Research | Market intel | Finding answers |
+| **Sage** | 📊 Data | Analytics | Insights |
+| **Shuri** | 🎯 Product | Strategy | Roadmaps |
+| **Code** | 💻 Developer | Coding | Building features |
+| **Wong** | 📚 Docs | Technical writing | Documentation |
+| **Pixel** | 🎨 Design | UI/UX | User experience |
+| **Guardian** | 🛡️ QA | Testing | Quality |
+| **Lingua** | 🌍 Translator | Localization | Global reach |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    WORKSPACE ORCHESTRATOR                        │
-│              (Coordinates missions, manages agents)              │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ Message Bus (IPC)
-       ┌───────────────────┼───────────────────┐
-       ▼                   ▼                   ▼
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Hunter    │     │   Pepper    │     │    Code     │
-│  (Sales)    │     │  (Email)    │     │   (Dev)     │
-│             │     │             │     │             │
-│  soul.md    │     │  soul.md    │     │  soul.md    │
-│  memory/    │     │  memory/    │     │  memory/    │
-│  Process    │     │  Process    │     │  Process    │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                   │
-       └───────────────────┼───────────────────┘
-                           ▼
-              Individual Ollama Connections
-               (Different models per agent)
+┌─────────────────────────────────────────┐
+│           YOUR MAC                      │
+│  ┌─────────────────────────────────┐    │
+│  │   Ollama (Metal GPU)            │    │
+│  │   - Local LLM inference         │    │
+│  │   - 7-35B parameter models      │    │
+│  └─────────────────────────────────┘    │
+│                   ↑                     │
+│  ┌─────────────────────────────────┐    │
+│  │   Workspace (Native Python)     │    │
+│  │   - Sub-agent processes         │    │
+│  │   - Streamlit dashboard         │    │
+│  │   - Message bus                 │    │
+│  └─────────────────────────────────┘    │
+│                   ↑                     │
+│         http://localhost:8501           │
+└─────────────────────────────────────────┘
 ```
+
+**Why not Docker?**
+- Zero overhead - direct Metal GPU access
+- Simpler setup - no container configuration
+- Native process management - easier debugging
+- 1GB+ less RAM usage
 
 ---
 
-## 🚀 Quick Start
-
-### 1. Install
-
-```bash
-cd /Users/bilyfoster/source/workspace
-pip install -r requirements.txt
-```
-
-### 2. Configure
-
-Edit `config.yaml`:
-```yaml
-ollama:
-  host: "http://herbie:11434"  # Your Ollama server
-```
-
-### 3. Launch Dashboard
-
-```bash
-streamlit run dashboard.py
-```
-
-Then open http://localhost:8501
-
----
-
-## 🎮 Using Workspace
-
-### Dashboard Interface
-
-The dashboard gives you a **Mission Control** view:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  🎯 WORKSPACE - Mission Control Dashboard                    │
-├─────────────────────────────────────────────────────────────┤
-│  👥 Active Squad          │  📋 Mission Board                │
-│  🟢 Hunter - Idle         │  ┌─────────┬─────────┬────────┐ │
-│  🔵 Pepper - Working      │  │ 📥 To Do│ 🔵 Doing│ ✅ Done│ │
-│  🟢 Code - Idle           │  │ Task 1  │ Task 2  │ Task 3 │ │
-│                           │  └─────────┴─────────┴────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Spawn Agents
-
-1. Go to **Agents** tab
-2. Select agents to spawn (Hunter, Pepper, Code, etc.)
-3. Click "Spawn Selected Agents"
-
-Or use quick squad buttons:
-- 🎯 **Sales Squad** - Hunter + Pepper + Sage
-- 🎨 **Creative Squad** - Quill + Pixel + Pepper
-- 💻 **Dev Squad** - Code + Guardian + Wong
-
-### Create a Mission
-
-1. Go to **Create Mission** tab
-2. Enter mission title and description
-3. Add tasks with assigned agents (or auto-assign)
-4. Click "Launch Mission"
-
-### Execute Tasks
-
-1. Go to **Missions** tab
-2. Select your mission
-3. Click "Assign & Execute" on pending tasks
-4. Watch agents work in real-time!
-
----
-
-## 👥 Meet the Squad
-
-| Agent | Avatar | Role | Soul Focus | Model |
-|-------|--------|------|------------|-------|
-| **Hunter** | 🎯 | Sales & Outreach | Opens doors, starts conversations | dolphin3 |
-| **Pepper** | 📧 | Email Marketing | Data-driven campaigns | dolphin3 |
-| **Quill** | 📝 | Social Media | Scroll-stopping content | gemma3 |
-| **Shuri** | 🎯 | Product Strategy | User-obsessed roadmaps | qwen3.5:9b |
-| **Wong** | 📚 | Documentation | Makes complex simple | qwen3-coder:30b |
-| **Code** | 💻 | Software Dev | Clean, maintainable code | qwen3-coder:30b |
-| **Scout** | 🔍 | Research | Finds what others miss | qwen3.5:9b |
-| **Sage** | 📊 | Data Analyst | Insights from noise | qwen3.5:9b |
-| **Pixel** | 🎨 | UI/UX Design | Champions the user | gemma3 |
-| **Guardian** | 🛡️ | QA & Testing | Breaks before users do | qwen3-coder:30b |
-| **Lingua** | 🌍 | Localization | Bridges cultures | qwen3.5:35b |
-
----
-
-## 🗂️ Project Structure
+## 📁 Project Structure
 
 ```
 workspace/
-├── agents/                      # Agent souls & memories
-│   ├── hunter/
-│   │   ├── soul.md             # Identity, values, personality
-│   │   ├── memory/             # Conversation history
-│   │   └── knowledge/          # Learned patterns
-│   ├── pepper/
-│   └── ... (11 agents total)
-├── shared/
-│   └── bus/                    # Inter-agent message bus
-├── herbie/                     # Legacy (being migrated)
-├── workspace_orchestrator.py   # Main orchestrator
-├── agent_process.py            # Sub-agent runner
-├── dashboard.py                # Streamlit UI
-├── config.yaml                 # Configuration
-└── missions/                   # Mission storage
+├── start.sh              ← Start here
+├── stop.sh               ← Stop everything
+├── setup.sh              ← One-time setup
+├── Makefile              ← Make commands
+├── install.command       ← Double-click installer
+├── QUICKSTART.md         ← Quick start guide
+│
+├── dashboard.py          ← Streamlit UI
+├── workspace_orchestrator.py
+├── agent_process.py      ← Sub-agent runner
+│
+├── agents/               ← Agent souls
+│   ├── hunter/soul.md
+│   ├── pepper/soul.md
+│   └── ... (11 total)
+│
+├── shared/bus/           ← Communication
+│   ├── message_bus.py
+│   ├── handoff.py
+│   ├── group_chat.py
+│   ├── alerts.py
+│   ├── analytics.py
+│   └── auto_handoff.py
+│
+├── soul.md               ← Project identity
+├── README.md             ← This file
+└── FEATURES.md           ← Feature docs
 ```
-
----
-
-## 🧬 Creating Custom Agents
-
-Create a new agent by adding a directory to `agents/`:
-
-```bash
-mkdir agents/myagent
-touch agents/myagent/soul.md
-```
-
-**soul.md template:**
-
-```markdown
-# MyAgent - Soul Manifest
-
-## Core Identity
-**Name:** MyAgent
-**Role:** Specialist
-**Avatar:** 🎭
-
-## Essence
-Who are you? What drives you?
-
-## Personality Traits
-- Trait 1
-- Trait 2
-
-## Core Values
-1. Value 1
-2. Value 2
-
-## Expertise
-- Skill 1
-- Skill 2
-
-## Model Configuration
-```yaml
-model: gemma3:latest
-temperature: 0.7
-```
-
-## Memory
-- **Long-term:** `/agents/myagent/memory/`
-```
-
-Restart the dashboard and your agent appears in the spawn list!
-
----
-
-## 🔧 Resource Usage
-
-| Component | RAM Usage | Notes |
-|-----------|-----------|-------|
-| Orchestrator | ~50MB | Central coordination |
-| Each Agent | ~30MB | Python process + memory |
-| Ollama Model | 4-16GB | Depends on model loaded |
-| **Total (3 agents)** | ~6-10GB | With qwen3.5:9b |
 
 ---
 
 ## 🛣️ Roadmap
 
-- [x] Full sub-agent processes with soul.md
-- [x] Persistent agent memory
-- [x] Message bus for inter-agent communication
-- [x] Mission Control dashboard
-- [ ] Agent-to-agent handoffs
-- [ ] Tool integration (web search, file operations)
-- [ ] Parallel task execution
-- [ ] Telegram bot interface
+- [x] Sub-agent architecture with soul.md
+- [x] Agent handoffs
+- [x] Group chat
+- [x] Activity monitoring
+- [x] Analytics & charts
+- [x] Mac-friendly setup
+- [ ] Telegram bot
 - [ ] REST API
-- [ ] Agent learning/self-improvement
+- [ ] iOS companion app
+- [ ] Siri integration
+
+---
+
+## 🤝 Contributing
+
+1. Fork it
+2. Create your feature branch (`git checkout -b feature/amazing`)
+3. Commit your changes (`git commit -am 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing`)
+5. Create Pull Request
 
 ---
 
 ## 📝 License
 
-MIT - Build your own AI squad!
+MIT License - Build your own AI squad!
 
 ---
 
-**Built with ❤️ for Herbie**
+**Built with ❤️ for Mac users by [bilyfoster](https://github.com/bilyfoster)**
+
+Version: v1.1.0 | [GitHub](https://github.com/bilyfoster/workspace) | [Issues](https://github.com/bilyfoster/workspace/issues)
