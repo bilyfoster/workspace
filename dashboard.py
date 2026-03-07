@@ -331,27 +331,25 @@ def render_dashboard():
     # Chat container
     st.markdown("---")
     
-    # Display messages - use explicit avatars to prevent default cycling icons
+    # Display messages - using default avatars (no custom emoji to avoid errors)
     for msg in st.session_state.messages:
         if msg['role'] == 'user':
-            with st.chat_message("user", avatar="👤"):
+            with st.chat_message("user"):
                 st.write(msg['content'])
         else:
-            avatar = msg.get('avatar', '🤖')
-            with st.chat_message("assistant", avatar=avatar):
+            with st.chat_message("assistant"):
+                avatar = msg.get('avatar', '🤖')
                 name = msg.get('name', 'Agent')
-                st.write(f"**{name}:** {msg['content']}")
+                st.write(f"{avatar} **{name}:** {msg['content']}")
     
-    # Thinking indicator with animation - use logo avatar to prevent cycling people
+    # Thinking indicator with animation
     if st.session_state.thinking:
-        with st.chat_message("assistant", avatar="🎯"):
+        with st.chat_message("assistant"):
             st.markdown("""
-            <div style="display: flex; align-items: center; gap: 8px; color: #667eea;">
-                <span>🧠 Thinking</span>
-                <span style="animation: pulse 1s infinite;">●</span>
-                <span style="animation: pulse 1s infinite 0.2s;">●</span>
-                <span style="animation: pulse 1s infinite 0.4s;">●</span>
-            </div>
+            🧠 Thinking
+            <span style="animation: pulse 1s infinite; display: inline-block;">●</span>
+            <span style="animation: pulse 1s infinite 0.2s; display: inline-block;">●</span>
+            <span style="animation: pulse 1s infinite 0.4s; display: inline-block;">●</span>
             <style>
                 @keyframes pulse {
                     0%, 100% { opacity: 0.3; }
