@@ -29,6 +29,10 @@ from herbie.core.mission_manager import MissionManager, Mission, MissionStatus
 from shared.bus.message_bus import MessageBus, Message, MessageType
 from shared.bus.activity_tracker import tracker, ActivityTracker
 from shared.bus.handoff import handoff_manager, HandoffManager
+from shared.bus.auto_handoff import auto_handoff, AutoHandoffDetector
+from shared.bus.group_chat import group_chat_manager, GroupChatManager
+from shared.bus.alerts import alert_manager, AlertManager
+from shared.bus.analytics import analytics, AnalyticsCollector
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +75,10 @@ class WorkspaceOrchestrator:
         self.bus = MessageBus()
         self.tracker = tracker
         self.handoff_manager = handoff_manager
+        self.auto_handoff = auto_handoff
+        self.group_chat = group_chat_manager
+        self.alerts = alert_manager
+        self.analytics = analytics
         
         # Agent processes
         self.agents: Dict[str, AgentProcess] = {}
@@ -373,7 +381,12 @@ class WorkspaceOrchestrator:
                 m.to_dict() for m in self.bus.get_history(limit=20)
             ],
             "activity_summary": self.tracker.get_activity_summary(),
-            "recent_handoffs": self.handoff_manager.get_recent_handoffs(10)
+            "recent_handoffs": self.handoff_manager.get_recent_handoffs(10),
+            "groups": self.group_chat.list_groups(),
+            "active_alerts": self.alerts.get_active_alerts(),
+            "system_metrics": self.analytics.get_system_metrics(),
+            "agent_performance": self.analytics.get_agent_performance(),
+            "activity_timeline": self.analytics.get_activity_timeline()
         }
     
     def _calculate_progress(self, mission: Mission) -> Dict[str, int]:
