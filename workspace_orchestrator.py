@@ -463,6 +463,9 @@ class WorkspaceOrchestrator:
         """
         Send a chat message and wait for response (synchronous)
         
+        For Manager agent, automatically includes Workspace context so it knows
+        the actual system state.
+        
         Args:
             agent_name: Name of agent to chat with
             message: Message to send
@@ -482,15 +485,27 @@ class WorkspaceOrchestrator:
         if not agent:
             return None
         
+        # Build message content - include Workspace context for Manager
+        if agent.name == "Manager":
+            # Get current Workspace state
+            context = self._build_manager_context()
+            full_message = f"""{context}
+
+---
+
+USER MESSAGE: {message}"""
+        else:
+            full_message = message
+        
         # Send message
         msg = Message.create(
             MessageType.USER_MESSAGE,
             sender="user",
             recipient=agent.id,
-            payload={"content": message}
+            payload={"content": full_message}
         )
         
-        # Save user message to history
+        # Save user message to history (original message, not with context)
         self.chat_history.save_message(agent.id, agent.name, "user", message)
         
         if not self.bus.send_to_agent(agent.id, msg):
@@ -514,6 +529,47 @@ class WorkspaceOrchestrator:
             time.sleep(0.5)
         
         return None  # Timeout
+    
+    def _build_manager_context(self) -> str:
+        """Build Workspace context for Manager agent"""
+        lines = ["=== WORKSPACE SYSTEM STATE ===", ""]
+        
+        # Agent status
+        lines.append(f"ACTIVE AGENTS ({len(self.agents)}):")
+        for agent_id, agent in self.agents.items():
+            status_icon = "🟢" if agent.status == "idle" else "🟡" if agent.status == "working" else "🔴"
+            task_info = f" - {agent.current_task[:40]}..." if agent.current_task else ""
+            thread_status = "alive" if agent.thread and agent.thread.is_alive() else "DEAD"
+            lines.append(f"  {status_icon} {agent.name} ({agent.status}, thread: {thread_status}){task_info}")
+        
+        lines.append("")
+        
+        # Mission status
+        missions = self.mission_manager.list_missions()
+        active_missions = [m for m in missions if m.status.value == "active"]
+        lines.append(f"MISSIONS: {len(active_missions)} active")
+        for mission in active_missions[:3]:  # Show up to 3
+            completed = len([t for t in mission.tasks if t.status == "completed"])
+            total = len(mission.tasks)
+            lines.append(f"  📋 {mission.title}: {completed}/{total} tasks")
+        
+        lines.append("")
+        
+        # Health status
+        health = self.health_monitor.get_health_summary()
+        if health.get('error', 0) > 0 or health.get('stuck', 0) > 0:
+            lines.append("⚠️ HEALTH ALERTS:")
+            if health.get('error', 0) > 0:
+                lines.append(f"  - {health['error']} agents in error state")
+            if health.get('stuck', 0) > 0:
+                lines.append(f"  - {health['stuck']} agents stuck")
+        else:
+            lines.append("✅ All agents healthy")
+        
+        lines.append("")
+        lines.append("=== END SYSTEM STATE ===")
+        
+        return "\n".join(lines)
     
     def create_mission(
         self,
