@@ -36,6 +36,7 @@ from shared.bus.auto_executor import AutoExecutor, get_auto_executor
 from shared.chat_history import chat_history, ChatHistoryManager
 from shared.resource_monitor import resource_monitor, ResourceMonitor
 from shared.agent_health_monitor import health_monitor, AgentHealthMonitor, AgentState
+from shared.manager_pulse import ManagerPulse, PulseEvent
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,6 +86,7 @@ class WorkspaceOrchestrator:
         self.chat_history = chat_history
         self.resource_monitor = resource_monitor
         self.health_monitor = health_monitor
+        self.manager_pulse: Optional[ManagerPulse] = None
         
         # Register health alert callback
         self.health_monitor.register_callback(self._on_health_alert)
@@ -274,6 +276,21 @@ class WorkspaceOrchestrator:
         """Get health summary for dashboard"""
         return self.health_monitor.get_health_summary()
     
+    def _on_pulse_event(self, event: PulseEvent):
+        """Handle Manager pulse events - publish to message bus for dashboard"""
+        # Publish as system message so dashboard can display it
+        self.bus.publish(Message.create(
+            MessageType.SYSTEM_MESSAGE,
+            sender="manager_pulse",
+            payload={
+                'content': event.message,
+                'severity': event.severity,
+                'type': event.type,
+                'timestamp': event.timestamp.isoformat()
+            }
+        ))
+        logger.info(f"Manager Pulse: {event.message[:80]}...")
+    
     def spawn_agent(self, name: str) -> Optional[AgentThread]:
         """
         Spawn a new agent as a thread (not process)
@@ -327,6 +344,14 @@ class WorkspaceOrchestrator:
             
             # Register with resource monitor
             self.resource_monitor.register_agent(agent_id, name.title(), thread.ident)
+            
+            # Start Manager Pulse if this is the Manager
+            if name.lower() == 'manager':
+                if self.manager_pulse is None:
+                    self.manager_pulse = ManagerPulse(self)
+                    self.manager_pulse.register_callback(self._on_pulse_event)
+                    self.manager_pulse.start()
+                    logger.info("Manager Pulse started - proactive monitoring active")
             
             logger.info(f"Spawned agent {name} as thread {thread.ident}")
             return agent_thread

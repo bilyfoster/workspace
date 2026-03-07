@@ -233,6 +233,20 @@ def render_hud():
     health = data.get('health_summary', {})
     stuck = health.get('stuck', 0)
     
+    # Show Manager Pulse messages (proactive updates)
+    manager_running = any(a['name'] == 'Manager' for a in agents)
+    if manager_running:
+        # Get pulse events from orchestrator
+        pulse = st.session_state.orchestrator.manager_pulse
+        if pulse:
+            recent_events = pulse.get_recent_events(3)
+            if recent_events:
+                with st.container():
+                    st.markdown("#### 💓 Manager Pulse")
+                    for event in reversed(recent_events):
+                        icon = "ℹ️" if event.severity == "info" else "⚠️" if event.severity == "warning" else "🔴"
+                        st.info(f"{icon} {event.message}")
+    
     # Show health alerts banner if there are issues
     if errors > 0 or stuck > 0:
         alert_msg = []
