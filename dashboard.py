@@ -409,8 +409,70 @@ def render_hud():
     else:
         st.info("🤖 No agents active. Use sidebar to spawn agents.")
 
+def render_agent_cards():
+    """Render agent cards below the sticky HUD"""
+    data = get_data()
+    if not data:
+        return
+    
+    agents = data['agents']
+    health = data.get('health_summary', {})
+    
+    if not agents:
+        st.info("🤖 No agents active. Use sidebar to spawn agents.")
+        return
+    
+    st.subheader("🤖 Active Agents")
+    
+    # Agent cards in columns
+    cols = st.columns(min(len(agents), 6))
+    for idx, agent in enumerate(agents):
+        with cols[idx % 6]:
+            agent_health = health.get('agents', {}).get(agent['id'], {})
+            health_state = agent_health.get('state', 'idle')
+            
+            # Build status line
+            if health_state == 'error' or agent['status'] == 'error':
+                status_icon = "🔴"
+                status_color = "#dc3545"
+            elif health_state == 'stuck':
+                status_icon = "⏱️"
+                status_color = "#ffc107"
+            elif agent['status'] == 'working':
+                status_icon = "⚡"
+                status_color = "#ffc107"
+            else:
+                status_icon = "☕"
+                status_color = "#28a745"
+            
+            task_preview = agent.get('current_task', '')[:20] + "..." if agent.get('current_task') else "Ready"
+            
+            # Card HTML
+            card_html = f"""
+            <div style='background: white; border: 2px solid {status_color}; border-radius: 12px; 
+                        padding: 10px; text-align: center; cursor: pointer; margin-bottom: 10px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+                <div style='font-size: 2rem;'>{agent['avatar']}</div>
+                <div style='font-weight: 600; font-size: 0.9rem;'>{agent['name']}</div>
+                <div style='color: {status_color}; font-size: 0.75rem;'>{status_icon} {agent['status'].title()}</div>
+                <div style='font-size: 0.7rem; color: #6c757d; margin-top: 4px;'>{task_preview}</div>
+            </div>
+            """
+            
+            # Use a button for clicking
+            if st.button(f"{agent['avatar']} {agent['name']}", key=f"agent_card_{agent['id']}", 
+                        use_container_width=True, type="secondary"):
+                st.session_state.selected_agent = agent
+                add_log("info", f"Selected agent: {agent['name']}")
+                st.rerun()
+
 def render_dashboard():
     """Main dashboard with chat"""
+    
+    # Show agent cards below HUD
+    render_agent_cards()
+    
+    st.markdown("---")
     
     # Show selected agent context
     if st.session_state.selected_agent:
