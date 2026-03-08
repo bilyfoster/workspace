@@ -581,27 +581,50 @@ USER MESSAGE: {message}"""
         return None  # Timeout
     
     def _build_manager_context(self) -> str:
-        """Build Workspace context for Manager agent"""
+        """Build Workspace context for Manager agent including available tools"""
+        from shared.agent_tools import get_tool_registry
+        
         lines = ["=== WORKSPACE SYSTEM STATE ===", ""]
         
         # Agent status
         lines.append(f"ACTIVE AGENTS ({len(self.agents)}):")
-        for agent_id, agent in self.agents.items():
-            status_icon = "🟢" if agent.status == "idle" else "🟡" if agent.status == "working" else "🔴"
-            task_info = f" - {agent.current_task[:40]}..." if agent.current_task else ""
-            thread_status = "alive" if agent.thread and agent.thread.is_alive() else "DEAD"
-            lines.append(f"  {status_icon} {agent.name} ({agent.status}, thread: {thread_status}){task_info}")
+        if self.agents:
+            for agent_id, agent in self.agents.items():
+                status_icon = "🟢" if agent.status == "idle" else "🟡" if agent.status == "working" else "🔴"
+                task_info = f" - {agent.current_task[:40]}..." if agent.current_task else ""
+                thread_status = "alive" if agent.thread and agent.thread.is_alive() else "DEAD"
+                lines.append(f"  {status_icon} {agent.name} ({agent.status}, thread: {thread_status}){task_info}")
+        else:
+            lines.append("  (No agents currently running)")
+        
+        # Available agents to spawn
+        available = self.list_available_agents()
+        lines.append(f"\nAVAILABLE TO SPAWN: {', '.join(available) if available else 'None'}")
         
         lines.append("")
         
         # Mission status
         missions = self.mission_manager.list_missions()
         active_missions = [m for m in missions if m.status.value == "active"]
-        lines.append(f"MISSIONS: {len(active_missions)} active")
-        for mission in active_missions[:3]:  # Show up to 3
+        all_missions_count = len(missions)
+        lines.append(f"\nMISSIONS: {len(active_missions)} active (of {all_missions_count} total)")
+        
+        for mission in active_missions[:3]:  # Show up to 3 active missions
             completed = len([t for t in mission.tasks if t.status == "completed"])
+            in_progress = len([t for t in mission.tasks if t.status == "in_progress"])
+            pending = len([t for t in mission.tasks if t.status == "pending"])
             total = len(mission.tasks)
-            lines.append(f"  📋 {mission.title}: {completed}/{total} tasks")
+            percent = int((completed / total * 100)) if total > 0 else 0
+            
+            lines.append(f"  📋 {mission.title} (ID: {mission.id})")
+            lines.append(f"     Progress: {completed}/{total} complete ({percent}%) | {in_progress} in progress | {pending} pending")
+            
+            # Show task details for missions with fewer tasks
+            if total <= 5:
+                for idx, task in enumerate(mission.tasks):
+                    status_icon = "✅" if task.status == "completed" else "🔄" if task.status == "in_progress" else "⏳"
+                    assigned = f" → {task.assigned_to}" if task.assigned_to else " (unassigned)"
+                    lines.append(f"       {idx}. {status_icon} {task.description[:40]}{assigned}")
         
         lines.append("")
         
@@ -616,8 +639,11 @@ USER MESSAGE: {message}"""
         else:
             lines.append("✅ All agents healthy")
         
-        lines.append("")
-        lines.append("=== END SYSTEM STATE ===")
+        # Add tool descriptions
+        tool_registry = get_tool_registry(self)
+        lines.append(tool_registry.get_tool_descriptions())
+        
+        lines.append("\n=== END SYSTEM STATE ===")
         
         return "\n".join(lines)
     

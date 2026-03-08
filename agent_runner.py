@@ -16,6 +16,7 @@ from herbie.core.ollama_client import OllamaClient, ChatMessage
 from herbie.core.config import config
 from shared.bus.message_bus import MessageBus, Message, MessageType
 from shared.bus.handoff import handoff_manager, HandoffContext
+from shared.agent_tools import get_tool_registry
 
 logging.basicConfig(
     level=logging.INFO,
@@ -355,7 +356,14 @@ Guidelines:
             self.status = "idle"
     
     def _chat(self, message: str) -> str:
-        """Handle a chat message"""
+        """
+        Handle a chat message with tool call detection and execution
+        
+        This implements a swarms-style approach where agents can
+        actually EXECUTE commands, not just talk about them.
+        """
+        import json
+        
         self.messages.append(ChatMessage(role="user", content=message))
         
         response_content = ""
@@ -366,6 +374,47 @@ Guidelines:
             temperature=self.soul.temperature
         ):
             response_content += response.message.content
+        
+        # Check for tool calls in the response (swarms-style execution)
+        try:
+            from workspace_orchestrator import get_orchestrator
+            orchestrator = get_orchestrator()
+            if orchestrator:
+                tool_registry = get_tool_registry(orchestrator)
+                tool_calls = tool_registry.parse_tool_calls(response_content)
+                
+                if tool_calls:
+                    logger.info(f"Agent {self.name} detected {len(tool_calls)} tool calls")
+                    
+                    # Execute each tool call and collect results
+                    tool_results = []
+                    for call in tool_calls:
+                        logger.info(f"Executing tool: {call.tool_name} with args {call.arguments}")
+                        result = tool_registry.execute_tool(call.tool_name, **call.arguments)
+                        result_data = json.loads(result)
+                        tool_results.append({
+                            "tool": call.tool_name,
+                            "arguments": call.arguments,
+                            "result": result_data
+                        })
+                    
+                    # Build tool execution report
+                    if tool_results:
+                        # Add tool results to conversation context
+                        tool_summary = "\n\n[Tool Execution Results]\n"
+                        for tr in tool_results:
+                            status = "✓" if tr["result"].get("success") else "✗"
+                            tool_summary += f"{status} {tr['tool']}: "
+                            if tr["result"].get("success"):
+                                tool_summary += json.dumps(tr["result"].get("result", {}))[:200]
+                            else:
+                                tool_summary += f"Error: {tr['result'].get('error', 'Unknown')}"
+                            tool_summary += "\n"
+                        
+                        # Append to response
+                        response_content += tool_summary
+        except Exception as e:
+            logger.warning(f"Tool execution failed: {e}")
         
         self.messages.append(ChatMessage(role="assistant", content=response_content))
         self._save_memory()

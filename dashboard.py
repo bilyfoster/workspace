@@ -5,7 +5,7 @@ Workspace Dashboard v1.9.2 - Custom Chat UI
 Usage:
     streamlit run dashboard.py
 
-Version: v1.9.2
+Version: v1.9.5
 """
 import streamlit as st
 import time
@@ -21,7 +21,7 @@ from shared.agent_factory import agent_factory
 
 # Page config
 st.set_page_config(
-    page_title="Workspace | v1.9.2",
+    page_title="Workspace | v1.9.5",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -199,6 +199,32 @@ if 'selected_agent' not in st.session_state:
     st.session_state.selected_agent = None
 if 'logs' not in st.session_state:
     st.session_state.logs = []
+if 'manager_auto_started' not in st.session_state:
+    st.session_state.manager_auto_started = False
+
+# Auto-start Manager on first load (unless in safe mode)
+if not st.session_state.manager_auto_started:
+    # Check if Manager is already running
+    data = get_data()
+    if data:
+        manager_running = any(a['name'] == 'Manager' for a in data['agents'])
+        if not manager_running:
+            # Check for safe mode flag (environment variable or query param)
+            import os
+            safe_mode = os.environ.get('WORKSPACE_SAFE_MODE', '').lower() == 'true'
+            if not safe_mode:
+                add_log("info", "Auto-starting Manager...")
+                result = st.session_state.orchestrator.spawn_agent('manager')
+                if result:
+                    resource_monitor.register_agent(result.id, result.name)
+                    add_log("success", "Manager auto-started")
+                    st.session_state.messages.append({
+                        "role": "agent", 
+                        "name": "Manager", 
+                        "avatar": "🎩",
+                        "content": "Hello! I'm your Workspace Manager. I'm here to coordinate the team, manage missions, and help you get things done. What would you like to work on today?"
+                    })
+    st.session_state.manager_auto_started = True
 
 def get_data():
     """Get current system state"""
@@ -219,6 +245,72 @@ def add_log(level: str, message: str):
     # Keep last 100 logs
     if len(st.session_state.logs) > 100:
         st.session_state.logs = st.session_state.logs[-100:]
+
+def escape_html(text: str) -> str:
+    """Escape HTML special characters"""
+    return (text
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+    )
+
+def format_message_with_tools(content: str) -> str:
+    """
+    Format a message that may contain tool execution results.
+    Separates main content from tool results for better display.
+    Returns HTML-safe content.
+    """
+    import re
+    
+    # Check for tool results section
+    if '[Tool Execution Results]' in content:
+        parts = content.split('[Tool Execution Results]', 1)
+        main_content = parts[0].strip()
+        tool_content = parts[1].strip()
+        
+        # Escape the main content for HTML
+        main_escaped = escape_html(main_content)
+        # Convert newlines to <br>
+        main_escaped = main_escaped.replace('\n', '<br>')
+        
+        # Format tool results as styled badges
+        tool_html = format_tool_results(tool_content)
+        
+        return f"{main_escaped}{tool_html}"
+    
+    # No tool results, just escape and return
+    escaped = escape_html(content)
+    escaped = escaped.replace('\n', '<br>')
+    return escaped
+
+def format_tool_results(tool_content: str) -> str:
+    """Format tool execution results as HTML badges"""
+    lines = tool_content.strip().split('\n')
+    badges = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Parse checkmark/status and tool name
+        if line.startswith('✓') or '✓' in line:
+            # Success - extract tool name
+            match = re.search(r'✓\s*(\w+)', line)
+            if match:
+                tool_name = match.group(1)
+                badges.append(f"<span style='background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; margin-right: 6px;'>✓ {tool_name}</span>")
+        elif line.startswith('✗') or '✗' in line:
+            # Error
+            match = re.search(r'✗\s*(\w+)', line)
+            if match:
+                tool_name = match.group(1)
+                badges.append(f"<span style='background: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; margin-right: 6px;'>✗ {tool_name}</span>")
+    
+    if badges:
+        return f"<div style='margin-top: 8px;'>{''.join(badges)}</div>"
+    return ""
 
 def render_hud():
     """Render the HUD panel - simplified clean version"""
@@ -338,13 +430,15 @@ def render_dashboard():
     for msg in st.session_state.messages:
         if msg['role'] == 'user':
             # User message - right aligned, blue
+            # Escape content for HTML safety
+            safe_content = escape_html(msg['content']).replace('\n', '<br>')
             chat_html.append(f"""
             <div style='display: flex; justify-content: flex-end; margin: 12px 0;'>
                 <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                            color: white; padding: 12px 16px; border-radius: 18px 18px 4px 18px; 
                            max-width: 70%; box-shadow: 0 2px 8px rgba(102,126,234,0.3);'>
                     <div style='font-size: 0.8em; opacity: 0.9; margin-bottom: 4px;'>You</div>
-                    {msg['content']}
+                    {safe_content}
                 </div>
             </div>
             """)
@@ -352,6 +446,8 @@ def render_dashboard():
             # Agent message - left aligned, gray
             avatar = msg.get('avatar', '🤖')
             name = msg.get('name', 'Agent')
+            # Format content to handle tool results nicely (already HTML-escaped)
+            content = format_message_with_tools(msg['content'])
             chat_html.append(f"""
             <div style='display: flex; justify-content: flex-start; margin: 12px 0;'>
                 <div style='background: #f8f9fa; border: 1px solid #e9ecef; 
@@ -360,7 +456,7 @@ def render_dashboard():
                     <div style='font-size: 0.8em; color: #667eea; margin-bottom: 4px;'>
                         {avatar} {name}
                     </div>
-                    {msg['content']}
+                    {content}
                 </div>
             </div>
             """)
@@ -415,6 +511,54 @@ def process_message(message: str):
     st.session_state.thinking = True
     add_log("info", f"User message: {message[:50]}...")
     st.rerun()
+
+def parse_mission_request(message: str) -> dict:
+    """
+    Parse a natural language request to see if it's a mission creation request.
+    Returns mission dict with title and tasks if detected, None otherwise.
+    """
+    import re
+    
+    # Check for mission keywords
+    mission_keywords = ['mission', 'project', 'create a', 'build a', 'make a', 'set up', 'help me']
+    has_mission_keyword = any(kw in message.lower() for kw in mission_keywords)
+    
+    # Check for multiple tasks (numbered lists, bullet points, or "and then")
+    task_patterns = [
+        r'\d+\.\s+(.+?)(?=\d+\.|$)',  # 1. Task one 2. Task two
+        r'[-*]\s+(.+?)(?=[-*]|$)',     # - Task one - Task two
+    ]
+    
+    tasks = []
+    for pattern in task_patterns:
+        matches = re.findall(pattern, message, re.MULTILINE | re.DOTALL)
+        if matches:
+            tasks = [t.strip() for t in matches if len(t.strip()) > 5]
+            break
+    
+    # If no explicit list but has "and" separating actions, try to split
+    if not tasks and has_mission_keyword:
+        # Look for phrases like "do X and do Y"
+        and_split = re.split(r'\s+and\s+', message)
+        if len(and_split) >= 2:
+            # Check if parts are substantial
+            potential_tasks = [s.strip() for s in and_split if len(s.strip()) > 10]
+            if len(potential_tasks) >= 2:
+                tasks = potential_tasks
+    
+    if has_mission_keyword and len(tasks) >= 1:
+        # Extract title from first sentence
+        first_sentence = message.split('.')[0].strip()
+        # Remove common prefixes
+        title = re.sub(r'^(create|make|build|set up|help me|I need|can you)\s+', '', first_sentence, flags=re.IGNORECASE)
+        title = title[:50] + ('...' if len(title) > 50 else '')
+        
+        return {
+            "title": title,
+            "tasks": tasks[:5]  # Max 5 tasks
+        }
+    
+    return None
 
 def generate_response():
     """Generate agent response"""
@@ -1062,16 +1206,35 @@ with st.sidebar:
     
     st.markdown("---")
     
-    if st.button("🚀 Spawn Manager", use_container_width=True):
-        add_log("info", "Spawning Manager")
-        result = st.session_state.orchestrator.spawn_agent('manager')
-        if result:
-            resource_monitor.register_agent(result.id, result.name)
-            add_log("success", "Manager spawned")
-        st.rerun()
+    # Safe mode toggle
+    safe_mode = st.checkbox("🔒 Safe Mode", value=False, 
+                            help="When enabled, Manager won't auto-start on next reload")
+    if safe_mode:
+        import os
+        os.environ['WORKSPACE_SAFE_MODE'] = 'true'
+    else:
+        import os
+        os.environ.pop('WORKSPACE_SAFE_MODE', None)
     
     st.markdown("---")
-    st.caption(f"Workspace v1.9.2")
+    
+    # Manual spawn button (shown if Manager not running)
+    data = get_data()
+    manager_running = data and any(a['name'] == 'Manager' for a in data['agents'])
+    
+    if not manager_running:
+        if st.button("🚀 Spawn Manager", use_container_width=True):
+            add_log("info", "Spawning Manager")
+            result = st.session_state.orchestrator.spawn_agent('manager')
+            if result:
+                resource_monitor.register_agent(result.id, result.name)
+                add_log("success", "Manager spawned")
+            st.rerun()
+    else:
+        st.success("✅ Manager running")
+    
+    st.markdown("---")
+    st.caption(f"Workspace v1.9.4")
 
 # Render main content
 if st.session_state.page == "dashboard":
