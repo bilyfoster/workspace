@@ -374,28 +374,46 @@ def render_hud():
     
     st.markdown(hud_html, unsafe_allow_html=True)
     
-    # Agent status pills below HUD
+    # Agent status section below HUD
     if agents:
-        agent_pills = []
-        for a in agents:
-            status = a.get('status', 'idle')
-            avatar = a.get('avatar', '🤖')
-            name = a['name']
-            if status == 'error':
-                color = '#dc3545'
-            elif status == 'working':
-                color = '#ffc107'
-            else:
-                color = '#28a745'
-            agent_pills.append(
-                f"<span style='background: {color}; color: white; padding: 4px 12px; "
-                f"border-radius: 15px; font-size: 0.8rem; margin: 2px; display: inline-block;'>"
-                f"{avatar} {name} • {status.title()}</span>"
-            )
-        st.markdown(
-            "<div style='margin: 10px 0;'><b>Active Agents:</b> " + " ".join(agent_pills) + "</div>",
-            unsafe_allow_html=True
-        )
+        st.markdown("---")
+        st.subheader("🤖 Agent Status")
+        
+        # Create columns for each agent
+        cols = st.columns(min(len(agents), 4))
+        for idx, agent in enumerate(agents):
+            with cols[idx % 4]:
+                status = agent.get('status', 'idle')
+                avatar = agent.get('avatar', '🤖')
+                name = agent['name']
+                current_task = agent.get('current_task', '')
+                
+                # Determine status color and icon
+                if status == 'error':
+                    status_emoji = "🔴"
+                    border_color = "#dc3545"
+                elif status == 'working':
+                    status_emoji = "⚡"
+                    border_color = "#ffc107"
+                else:
+                    status_emoji = "☕"
+                    border_color = "#28a745"
+                
+                # Build status card
+                task_display = f"<div style='font-size: 0.75rem; color: #6c757d; margin-top: 4px;'>📝 {current_task[:30]}...</div>" if current_task else ""
+                
+                st.markdown(
+                    f"<div style='border: 2px solid {border_color}; border-radius: 12px; padding: 12px; background: white;'>"
+                    f"<div style='font-size: 1.5rem; text-align: center;'>{avatar}</div>"
+                    f"<div style='font-weight: 600; text-align: center;'>{name}</div>"
+                    f"<div style='text-align: center; color: {border_color}; font-size: 0.85rem;'>{status_emoji} {status.title()}</div>"
+                    f"{task_display}"
+                    f"<div style='font-size: 0.7rem; color: #adb5bd; margin-top: 8px; text-align: center;'>Tasks: {agent.get('tasks_completed', 0)}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+        
+        st.markdown("---")
     
     # Agent cards row
     if agents:
