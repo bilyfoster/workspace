@@ -500,7 +500,7 @@ def render_dashboard():
             # Escape content for HTML safety and convert newlines
             safe_content = escape_html(msg['content']).replace('\n', '<br>')
             chat_html.append(f"""
-            <div style='display: flex; justify-content: flex-end; margin: 12px 0;'>
+            <div style='display: flex; justify-content: flex-end; margin: 12px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;'>
                 <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                            color: white; padding: 12px 16px; border-radius: 18px 18px 4px 18px; 
                            max-width: 70%; box-shadow: 0 2px 8px rgba(102,126,234,0.3);'>
@@ -516,7 +516,7 @@ def render_dashboard():
             # Format content - agent messages are trusted HTML
             content = format_agent_message(msg['content'])
             chat_html.append(f"""
-            <div style='display: flex; justify-content: flex-start; margin: 12px 0;'>
+            <div style='display: flex; justify-content: flex-start; margin: 12px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;'>
                 <div style='background: #f8f9fa; border: 1px solid #e9ecef; 
                            color: #212529; padding: 12px 16px; border-radius: 18px 18px 18px 4px; 
                            max-width: 70%; box-shadow: 0 2px 4px rgba(0,0,0,0.05);'>

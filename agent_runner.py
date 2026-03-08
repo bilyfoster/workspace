@@ -376,6 +376,7 @@ Guidelines:
             response_content += response.message.content
         
         # Check for tool calls in the response (swarms-style execution)
+        logger.info(f"Agent {self.name} checking for tool calls in response ({len(response_content)} chars)")
         try:
             from workspace_orchestrator import get_orchestrator
             orchestrator = get_orchestrator()
@@ -383,8 +384,10 @@ Guidelines:
                 tool_registry = get_tool_registry(orchestrator)
                 tool_calls = tool_registry.parse_tool_calls(response_content)
                 
+                logger.info(f"Agent {self.name} parsed tool calls: {len(tool_calls)} found")
                 if tool_calls:
-                    logger.info(f"Agent {self.name} detected {len(tool_calls)} tool calls")
+                    for i, call in enumerate(tool_calls):
+                        logger.info(f"  Tool {i+1}: {call.tool_name} with args {call.arguments}")
                     
                     # Execute each tool call and collect results
                     tool_results = []
