@@ -466,7 +466,8 @@ def render_dashboard():
         """)
     
     chat_html.append("</div>")
-    st.markdown("".join(chat_html), unsafe_allow_html=True)
+    # Use st.html() for proper HTML rendering (st.markdown with unsafe_allow_html can escape nested content)
+    st.html("".join(chat_html))
     
     # Input
     message = st.chat_input("Message your team...")
