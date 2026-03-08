@@ -238,7 +238,7 @@ class ToolRegistry:
     def _tool_spawn_agent(self, name: str) -> Dict:
         """Actually spawn an agent"""
         if not self.orchestrator:
-            return {"error": "No orchestrator available"}
+            return {"success": False, "error": "No orchestrator available"}
             
         from shared.resource_monitor import resource_monitor
         
@@ -246,43 +246,58 @@ class ToolRegistry:
         if result:
             resource_monitor.register_agent(result.id, result.name)
             return {
+                "success": True,
                 "spawned": True,
                 "agent_id": result.id,
                 "agent_name": result.name,
                 "status": result.status
             }
-        return {"spawned": False, "error": "Agent may already be running or soul not found"}
+        return {"success": False, "spawned": False, "error": "Agent may already be running or soul not found"}
         
     def _tool_kill_agent(self, name: str) -> Dict:
-        """Kill an agent"""
+        """Kill an agent by name"""
         if not self.orchestrator:
-            return {"error": "No orchestrator available"}
+            return {"success": False, "error": "No orchestrator available"}
             
-        # Find agent by name
+        # Find agent by name (case-insensitive, partial match allowed)
+        name_lower = name.lower()
+        matches = []
         for aid, agent in self.orchestrator.agents.items():
-            if agent.name.lower() == name.lower():
-                self.orchestrator.kill_agent(aid)
-                return {"killed": True, "agent_name": agent.name}
-                
-        return {"killed": False, "error": f"Agent {name} not found"}
+            if name_lower in agent.name.lower():
+                matches.append((aid, agent))
+        
+        if not matches:
+            return {"success": False, "error": f"No agent matching '{name}' found"}
+        
+        # Kill all matches (in case there are duplicates)
+        killed_names = []
+        for aid, agent in matches:
+            self.orchestrator.kill_agent(aid)
+            killed_names.append(agent.name)
+            
+        return {"success": True, "killed": True, "agent_names": killed_names, "count": len(killed_names)}
         
     def _tool_list_agents(self) -> Dict:
-        """List all agents"""
+        """List all agents with detailed status"""
         if not self.orchestrator:
-            return {"error": "No orchestrator available"}
+            return {"success": False, "error": "No orchestrator available"}
             
         agents = []
         for aid, agent in self.orchestrator.agents.items():
+            # Check if thread is actually alive
+            thread_alive = agent.thread.is_alive() if agent.thread else False
+            
             agents.append({
                 "id": aid,
                 "name": agent.name,
                 "status": agent.status,
+                "thread_alive": thread_alive,
                 "role": agent.role,
                 "tasks_completed": agent.tasks_completed,
                 "current_task": agent.current_task
             })
             
-        return {"agents": agents, "count": len(agents)}
+        return {"success": True, "agents": agents, "count": len(agents)}
         
     def _tool_get_status(self) -> Dict:
         """Get full workspace status"""

@@ -235,6 +235,19 @@ Now I'll assign the tasks and start execution.
 3. Expected outcome or next steps
 4. For missions, report progress with specific numbers
 
+## Tool Execution Results
+
+After each tool call, the system will show execution results like:
+- ✓ spawn_agent: {"success": true, "agent_name": "Code", "agent_id": "..."}
+- ✗ kill_agent: {"success": false, "error": "Agent not found"}
+
+**Pay attention to these results!** If a tool fails, the agent wasn't spawned/killed. If it succeeds, the action worked.
+
+**Common issues:**
+- "Agent already running" - The agent exists, no need to respawn
+- "Agent not found" - The agent name might be wrong or they're already dead
+- Check `list_agents` to see actual running agents
+
 ---
 
 ## Manager Protocol
