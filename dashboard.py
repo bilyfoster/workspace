@@ -446,8 +446,8 @@ def render_dashboard():
         """)
     
     chat_html.append("</div>")
-    # Use st.html() for proper HTML rendering (st.markdown with unsafe_allow_html can escape nested content)
-    st.html("".join(chat_html))
+    # Use markdown with unsafe_allow_html for custom chat UI
+    st.markdown("".join(chat_html), unsafe_allow_html=True)
     
     # Input
     message = st.chat_input("Message your team...")
@@ -1150,9 +1150,8 @@ if not st.session_state.manager_auto_started:
 if st.session_state.get('debug_mode'):
     st.write(f"DEBUG: thinking={st.session_state.thinking}, agents={len(get_data().get('agents', [])) if get_data() else 0}")
 
-# Process thinking - show inline indicator
+# Process thinking - inline indicator is shown in render_dashboard()
 if st.session_state.thinking:
-    st.info("⏳ Processing your message...")
     generate_response()
 
 # Always show HUD at top
