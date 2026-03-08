@@ -223,7 +223,7 @@ def add_log(level: str, message: str):
         st.session_state.logs = st.session_state.logs[-100:]
 
 def escape_html(text: str) -> str:
-    """Escape HTML special characters"""
+    """Escape HTML special characters for user messages"""
     return (text
         .replace('&', '&amp;')
         .replace('<', '&lt;')
@@ -231,11 +231,10 @@ def escape_html(text: str) -> str:
         .replace('"', '&quot;')
     )
 
-def format_message_with_tools(content: str) -> str:
+def format_agent_message(content: str) -> str:
     """
-    Format a message that may contain tool execution results.
-    Separates main content from tool results for better display.
-    Returns HTML-safe content.
+    Format agent message - handle tool results and convert newlines to <br>.
+    Agent messages are trusted HTML, so we don't escape them.
     """
     import re
     
@@ -245,20 +244,16 @@ def format_message_with_tools(content: str) -> str:
         main_content = parts[0].strip()
         tool_content = parts[1].strip()
         
-        # Escape the main content for HTML
-        main_escaped = escape_html(main_content)
-        # Convert newlines to <br>
-        main_escaped = main_escaped.replace('\n', '<br>')
+        # Convert newlines to <br> for main content
+        main_formatted = main_content.replace('\n', '<br>')
         
         # Format tool results as styled badges
         tool_html = format_tool_results(tool_content)
         
-        return f"{main_escaped}{tool_html}"
+        return f"{main_formatted}{tool_html}"
     
-    # No tool results, just escape and return
-    escaped = escape_html(content)
-    escaped = escaped.replace('\n', '<br>')
-    return escaped
+    # No tool results, just convert newlines to <br>
+    return content.replace('\n', '<br>')
 
 def format_tool_results(tool_content: str) -> str:
     """Format tool execution results as HTML badges"""
@@ -406,7 +401,7 @@ def render_dashboard():
     for msg in st.session_state.messages:
         if msg['role'] == 'user':
             # User message - right aligned, blue
-            # Escape content for HTML safety
+            # Escape content for HTML safety and convert newlines
             safe_content = escape_html(msg['content']).replace('\n', '<br>')
             chat_html.append(f"""
             <div style='display: flex; justify-content: flex-end; margin: 12px 0;'>
@@ -422,8 +417,8 @@ def render_dashboard():
             # Agent message - left aligned, gray
             avatar = msg.get('avatar', '🤖')
             name = msg.get('name', 'Agent')
-            # Format content to handle tool results nicely (already HTML-escaped)
-            content = format_message_with_tools(msg['content'])
+            # Format content - agent messages are trusted HTML
+            content = format_agent_message(msg['content'])
             chat_html.append(f"""
             <div style='display: flex; justify-content: flex-start; margin: 12px 0;'>
                 <div style='background: #f8f9fa; border: 1px solid #e9ecef; 
