@@ -541,8 +541,9 @@ def render_dashboard():
         """)
     
     chat_html.append("</div>")
-    # Use markdown with unsafe_allow_html for custom chat UI
-    st.markdown("".join(chat_html), unsafe_allow_html=True)
+    # Render chat HTML - use native HTML rendering
+    import streamlit.components.v1 as components
+    components.html("".join(chat_html), height=600, scrolling=True)
     
     # Input
     message = st.chat_input("Message your team...")
