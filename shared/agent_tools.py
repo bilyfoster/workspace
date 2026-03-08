@@ -47,8 +47,15 @@ class ToolRegistry:
     """
     
     # Pattern to detect tool calls in agent responses
+    # Supports multiple formats:
+    # - [tool:name]{"arg": "value"}
+    # - ```json {"tool": "name", "arg": "value"} ```
+    # - ```json [tool:name]{"arg": "value"} ```  (LLM sometimes wraps in code blocks)
+    # - TOOL_CALL: name : {"arg": "value"}
+    # Note: We use a non-greedy match for JSON args to handle nested braces
     TOOL_PATTERN = re.compile(
-        r'\[tool:(\w+)\](\{[^\}]*\})'  # [tool:name]{"arg": "value"} or [tool:name]{}
+        r'```(?:json)?\s*\n?\[tool:(\w+)\](\{.*?\})\n?```'  # ```json [tool:name]{...} ``` (non-greedy)
+        r'|\[tool:(\w+)\](\{[^\}]*(?:\{[^\}]*\}[^\}]*)*\})'  # [tool:name]{"arg": "value"} with nested braces
         r'|```(?:json)?\s*\n?(\{[^\}]*"tool"[^\}]*\})\n?```'  # ```json {"tool": "name"} ```
         r'|TOOL_CALL:\s*(\w+)\s*:\s*(\{[^\}]*\})',  # TOOL_CALL: name : {"arg": "value"}
         re.DOTALL | re.IGNORECASE
@@ -151,24 +158,48 @@ class ToolRegistry:
         
         for match in self.TOOL_PATTERN.finditer(text):
             # Determine which group matched
+            # Group 1 & 2: ```json [tool:name]{args} ```
+            # Group 3 & 4: [tool:name]{args} (plain)
+            # Group 5: ```json {"tool": "name", ...} ```
+            # Group 6 & 7: TOOL_CALL format
+            
             if match.group(1) and match.group(2):
-                # [tool:name]{args} format
+                # Code block with [tool:name]{args}
                 tool_name = match.group(1)
                 args_json = match.group(2)
-            elif match.group(3):
-                # ```json format
-                full_json = json.loads(match.group(3))
-                tool_name = full_json.pop('tool', None)
-                args_json = json.dumps(full_json)
-            elif match.group(4) and match.group(5):
+            elif match.group(3) and match.group(4):
+                # Plain [tool:name]{args} format
+                tool_name = match.group(3)
+                args_json = match.group(4)
+            elif match.group(5):
+                # ```json {"tool": "name", ...} format
+                try:
+                    full_json = json.loads(match.group(5))
+                    tool_name = full_json.pop('tool', None)
+                    # Handle "param" wrapper that LLM sometimes adds
+                    if 'param' in full_json and isinstance(full_json['param'], dict):
+                        args = full_json['param']
+                        calls.append(ToolCall(
+                            tool_name=tool_name,
+                            arguments=args,
+                            raw_text=match.group(0)
+                        ))
+                        continue
+                    args_json = json.dumps(full_json)
+                except json.JSONDecodeError:
+                    continue
+            elif match.group(6) and match.group(7):
                 # TOOL_CALL format
-                tool_name = match.group(4)
-                args_json = match.group(5)
+                tool_name = match.group(6)
+                args_json = match.group(7)
             else:
                 continue
                 
             try:
                 args = json.loads(args_json)
+                # Handle "param" wrapper that LLM sometimes adds
+                if 'param' in args and isinstance(args['param'], dict):
+                    args = args['param']
                 calls.append(ToolCall(
                     tool_name=tool_name,
                     arguments=args,
