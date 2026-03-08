@@ -374,6 +374,29 @@ def render_hud():
     
     st.markdown(hud_html, unsafe_allow_html=True)
     
+    # Agent status pills below HUD
+    if agents:
+        agent_pills = []
+        for a in agents:
+            status = a.get('status', 'idle')
+            avatar = a.get('avatar', '🤖')
+            name = a['name']
+            if status == 'error':
+                color = '#dc3545'
+            elif status == 'working':
+                color = '#ffc107'
+            else:
+                color = '#28a745'
+            agent_pills.append(
+                f"<span style='background: {color}; color: white; padding: 4px 12px; "
+                f"border-radius: 15px; font-size: 0.8rem; margin: 2px; display: inline-block;'>"
+                f"{avatar} {name} • {status.title()}</span>"
+            )
+        st.markdown(
+            "<div style='margin: 10px 0;'><b>Active Agents:</b> " + " ".join(agent_pills) + "</div>",
+            unsafe_allow_html=True
+        )
+    
     # Agent cards row
     if agents:
         st.write("**Click an agent to chat:**")
