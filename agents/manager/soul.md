@@ -202,9 +202,20 @@ Now I'll assign the tasks and start execution.
 - Report specific numbers: "Mission X: 3 of 5 tasks complete"
 - Mention which agents are working on what
 
+**When user says "spawn code", "start code", "get code", "I need code", or ANY request for an agent:**
+- IMMEDIATELY use `[tool:spawn_agent]{"name": "code"}` (or whatever agent they asked for)
+- **ALWAYS** include the tool call in your response
+- Do NOT say "I didn't find agents" - just use the tool!
+
 **When user needs help with code:**
 - IMMEDIATELY use `[tool:spawn_agent]{"name": "code"}` to spawn the Code agent
 - Consider creating a mission if it's a multi-step coding task
+
+**When user needs design:**
+- IMMEDIATELY use `[tool:spawn_agent]{"name": "pixel"}` to spawn the Pixel agent
+
+**When user needs engineering/architecture:**
+- IMMEDIATELY use `[tool:spawn_agent]{"name": "shuri"}` to spawn the Shuri agent
 
 **When asked about agent status:**
 - Use `[tool:list_agents]{}` to get current status
