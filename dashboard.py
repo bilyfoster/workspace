@@ -490,6 +490,10 @@ def render_dashboard():
     # Chat container
     st.markdown("---")
     
+    # Thinking indicator at top of chat area
+    if st.session_state.thinking:
+        st.info("⏳ Agent is thinking... Please wait while processing your message.")
+    
     # Custom chat display (no st.chat_message to avoid default avatars)
     chat_html = []
     chat_html.append("<div style='max-width: 800px; margin: 0 auto;'>")
@@ -518,16 +522,33 @@ def render_dashboard():
                 f"<b style='color: #667eea;'>{avatar} {name}:</b><br>{content}</span></div>"
             )
     
-    # Thinking indicator - simple animation using GIF or emoji
+    # Thinking indicator with animated dots
     if st.session_state.thinking:
         chat_html.append("""
-        <div style='display: flex; justify-content: flex-start; margin: 12px 0;'>
-            <div style='background: #e3f2fd; border: 2px solid #2196f3; 
-                       color: #1565c0; padding: 12px 20px; border-radius: 18px; 
-                       box-shadow: 0 2px 8px rgba(33,150,243,0.2);'>
-                <span>⏳ Processing...</span>
-            </div>
+        <div style='text-align: left; margin: 12px 0;'>
+            <span style='background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
+                       border: 2px solid #2196f3; color: #1565c0; 
+                       padding: 12px 20px; border-radius: 18px;
+                       display: inline-block; font-family: Helvetica, Arial, sans-serif;
+                       animation: pulse 1.5s ease-in-out infinite;'>
+                ⏳ Thinking<span class="dots">...</span>
+            </span>
         </div>
+        <style>
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+            }
+            .dots {
+                animation: dots 1.5s steps(4, end) infinite;
+            }
+            @keyframes dots {
+                0%, 20% { content: ''; }
+                40% { content: '.'; }
+                60% { content: '..'; }
+                80%, 100% { content: '...'; }
+            }
+        </style>
         """)
     
     chat_html.append("</div>")
