@@ -31,6 +31,29 @@ st.set_page_config(
 # ==================== CSS ====================
 st.markdown("""
 <style>
+    /* Hide default Streamlit header */
+    header[data-testid="stHeader"] {
+        display: none;
+    }
+    
+    /* Sticky HUD container */
+    .sticky-hud {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+        border-bottom: 2px solid rgba(102, 126, 234, 0.5);
+        padding: 10px 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    /* Push main content down to account for sticky header */
+    .main-content {
+        margin-top: 180px;
+    }
+    
     .main-header {
         font-size: 1.5rem;
         font-weight: 600;
@@ -40,11 +63,11 @@ st.markdown("""
     
     /* HUD Styles */
     .hud-box {
-        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 20px;
-        border: 1px solid rgba(102, 126, 234, 0.3);
+        background: transparent;
+        border-radius: 0;
+        padding: 0;
+        margin-bottom: 0;
+        border: none;
     }
     
     .hud-header {
@@ -285,61 +308,71 @@ def format_tool_results(tool_content: str) -> str:
     return ""
 
 def render_hud():
-    """Render the HUD panel - simplified clean version"""
+    """Render the sticky HUD panel at the top"""
     data = get_data()
     if not data:
         return
     
     agents = data['agents']
     working = len([a for a in agents if a['status'] == 'working'])
+    idle = len([a for a in agents if a['status'] == 'idle'])
     errors = len([a for a in agents if a['status'] == 'error'])
-    missions = len([m for m in data['missions'] if m['status'] == 'active'])
+    total_missions = len(data['missions'])
+    active_missions = len([m for m in data['missions'] if m['status'] == 'active'])
     tasks = sum(a['tasks_completed'] for a in agents)
     
     # Get health summary
     health = data.get('health_summary', {})
     stuck = health.get('stuck', 0)
+    healthy = health.get('healthy', 0)
     
-    # Show Manager Pulse messages (proactive updates)
+    # Check Manager status
     manager_running = any(a['name'] == 'Manager' for a in agents)
-    if manager_running:
-        # Get pulse events from orchestrator
-        pulse = st.session_state.orchestrator.manager_pulse
-        if pulse:
-            recent_events = pulse.get_recent_events(3)
-            if recent_events:
-                with st.container():
-                    st.markdown("#### 💓 Manager Pulse")
-                    for event in reversed(recent_events):
-                        icon = "ℹ️" if event.severity == "info" else "⚠️" if event.severity == "warning" else "🔴"
-                        st.info(f"{icon} {event.message}")
     
-    # Show health alerts banner if there are issues
-    if errors > 0 or stuck > 0:
-        alert_msg = []
-        if errors > 0:
-            alert_msg.append(f"{errors} agent(s) in error state")
-        if stuck > 0:
-            alert_msg.append(f"{stuck} agent(s) stuck")
-        st.error(f"⚠️ Health Alert: {', '.join(alert_msg)}. Check Logs & Debug for details.")
+    # Build HUD HTML for sticky header
+    hud_html = f"""
+    <div class="sticky-hud">
+        <div style="display: flex; justify-content: space-between; align-items: center; max-width: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 1.3rem; font-weight: 600; color: #667eea;">🎯 Workspace</span>
+                <span style="background: {'#28a745' if manager_running else '#dc3545'}; 
+                           color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem;">
+                    {'🟢 Manager Active' if manager_running else '🔴 Manager Offline'}
+                </span>
+            </div>
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #667eea;">{len(agents)}</div>
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.7);">AGENTS</div>
+                </div>
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: {'#ffc107' if working > 0 else '#28a745'};">{working}</div>
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.7);">WORKING</div>
+                </div>
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: {'#28a745' if idle > 0 else '#6c757d'};">{idle}</div>
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.7);">IDLE</div>
+                </div>
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: {'#dc3545' if errors > 0 else '#28a745'};">{errors}</div>
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.7);">ERRORS</div>
+                </div>
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #667eea;">{active_missions}</div>
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.7);">MISSIONS</div>
+                </div>
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #17a2b8;">{tasks}</div>
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.7);">TASKS</div>
+                </div>
+            </div>
+        </div>
+        {"<div style='margin-top: 8px; padding: 5px 10px; background: rgba(220, 53, 69, 0.2); border-radius: 6px; color: #ff6b6b; font-size: 0.85rem;'>⚠️ Health Alert: " + str(errors) + " error(s), " + str(stuck) + " stuck</div>" if errors > 0 or stuck > 0 else ""}
+    </div>
+    <div style="margin-top: 70px;"></div>
+    """
     
-    # HUD Header with metrics
-    st.subheader("🎯 Workspace HUD")
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("Agents", len(agents))
-    with col2:
-        st.metric("Working", working)
-    with col3:
-        alert_delta = f"🔴 {errors}" if errors > 0 else None
-        st.metric("Alerts", errors, delta=alert_delta, delta_color="inverse")
-    with col4:
-        st.metric("Missions", missions)
-    with col5:
-        st.metric("Tasks", tasks)
-    
-    st.divider()
+    st.markdown(hud_html, unsafe_allow_html=True)
     
     # Agent cards row
     if agents:
