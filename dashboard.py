@@ -49,9 +49,22 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     
-    /* Push main content down to account for sticky header */
+    /* Sticky Agent Bar */
+    .sticky-agent-bar {
+        position: fixed;
+        top: 70px;
+        left: 0;
+        right: 0;
+        z-index: 9998;
+        background: linear-gradient(135deg, #2d2d44 0%, #1e1e2e 100%);
+        border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+        padding: 8px 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* Push main content down to account for sticky headers */
     .main-content {
-        margin-top: 180px;
+        margin-top: 220px;
     }
     
     .main-header {
@@ -307,6 +320,54 @@ def format_tool_results(tool_content: str) -> str:
         return f"<div style='margin-top: 8px;'>{''.join(badges)}</div>"
     return ""
 
+def render_sticky_agent_bar(agents):
+    """Render a sticky mini agent bar below the main HUD"""
+    if not agents:
+        # Still render the bar but show "No agents"
+        bar_html = """
+        <div class="sticky-agent-bar">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="color: rgba(255,255,255,0.5); font-size: 0.8rem;">🤖 Agents:</span>
+                <span style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">None running</span>
+            </div>
+        </div>
+        <div style="margin-top: 40px;"></div>
+        """
+        st.markdown(bar_html, unsafe_allow_html=True)
+        return
+    
+    # Build mini agent pills
+    agent_pills = []
+    for a in agents:
+        status = a.get('status', 'idle')
+        avatar = a.get('avatar', '🤖')
+        name = a['name']
+        if status == 'error':
+            color = '#dc3545'
+            status_emoji = '🔴'
+        elif status == 'working':
+            color = '#ffc107'
+            status_emoji = '⚡'
+        else:
+            color = '#28a745'
+            status_emoji = '☕'
+        agent_pills.append(
+            f"<span style='background: {color}; color: white; padding: 3px 10px; "
+            f"border-radius: 12px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 5px;'>"
+            f"{avatar} {name} {status_emoji}</span>"
+        )
+    
+    bar_html = f"""
+    <div class="sticky-agent-bar">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span style="color: rgba(255,255,255,0.7); font-size: 0.8rem; font-weight: 600;">🤖 Agents:</span>
+            {" ".join(agent_pills)}
+        </div>
+    </div>
+    <div style="margin-top: 40px;"></div>
+    """
+    st.markdown(bar_html, unsafe_allow_html=True)
+
 def render_hud():
     """Render the sticky HUD panel at the top"""
     data = get_data()
@@ -329,6 +390,28 @@ def render_hud():
     # Check Manager status
     manager_running = any(a['name'] == 'Manager' for a in agents)
     
+    # Build agent status pills for top HUD
+    agent_pills_html = ""
+    if agents:
+        pills = []
+        for a in agents[:8]:  # Show first 8 agents in HUD
+            status = a.get('status', 'idle')
+            avatar = a.get('avatar', '🤖')
+            name = a['name']
+            if status == 'error':
+                pill_color = '#dc3545'
+            elif status == 'working':
+                pill_color = '#ffc107'
+            else:
+                pill_color = '#28a745'
+            pills.append(
+                f"<span style='background: {pill_color}; color: white; padding: 2px 8px; "
+                f"border-radius: 10px; font-size: 0.7rem; white-space: nowrap;'>{avatar} {name}</span>"
+            )
+        agent_pills_html = " ".join(pills)
+        if len(agents) > 8:
+            agent_pills_html += f" <span style='color: rgba(255,255,255,0.5); font-size: 0.7rem;'>+{len(agents)-8} more</span>"
+    
     # Build HUD HTML for sticky header
     hud_html = f"""
     <div class="sticky-hud">
@@ -339,6 +422,7 @@ def render_hud():
                            color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem;">
                     {'🟢 Manager Active' if manager_running else '🔴 Manager Offline'}
                 </span>
+                {f"<span style='color: rgba(255,255,255,0.6); font-size: 0.75rem; margin-left: 10px;'>Agents: {agent_pills_html}</span>" if agents else ""}
             </div>
             <div style="display: flex; gap: 20px; align-items: center;">
                 <div style="text-align: center; color: white;">
@@ -369,15 +453,18 @@ def render_hud():
         </div>
         {"<div style='margin-top: 8px; padding: 5px 10px; background: rgba(220, 53, 69, 0.2); border-radius: 6px; color: #ff6b6b; font-size: 0.85rem;'>⚠️ Health Alert: " + str(errors) + " error(s), " + str(stuck) + " stuck</div>" if errors > 0 or stuck > 0 else ""}
     </div>
-    <div style="margin-top: 70px;"></div>
     """
     
     st.markdown(hud_html, unsafe_allow_html=True)
     
-    # Agent control panel below HUD
+    # Sticky agent control bar
+    render_sticky_agent_bar(agents)
+    
+    # Full agent control panel (below the sticky bars, user can scroll to it)
     if agents:
         st.markdown("---")
-        st.subheader("🤖 Agent Control Panel")
+        st.subheader("🤖 Agent Control Panel (Scroll down for full controls)")
+        st.caption("👆 Use the sticky bar above to see all agents at a glance. Each agent shows their status: ☕ Idle | ⚡ Working | 🔴 Error")
         
         # Create columns for each agent
         cols = st.columns(min(len(agents), 3))
