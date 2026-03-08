@@ -654,7 +654,7 @@ def generate_response():
             target_agent = agent
             break
     
-    # Handle commands
+    # Handle commands - let Manager handle most things via tools
     if "who" in msg_lower and ("working" in msg_lower or "doing" in msg_lower):
         summary = "**Team Status:**\n\n"
         for a in data['agents']:
@@ -668,28 +668,8 @@ def generate_response():
         })
         add_log("success", "Generated team status summary")
     
-    elif "spawn" in msg_lower or "start" in msg_lower:
-        spawned = []
-        for name in data.get('available_agents', []):
-            if name.lower() in msg_lower:
-                add_log("info", f"Spawning agent: {name}")
-                result = st.session_state.orchestrator.spawn_agent(name)
-                if result:
-                    resource_monitor.register_agent(result.id, result.name)
-                    spawned.append(name.title())
-                    add_log("success", f"Spawned {name}")
-        
-        if spawned:
-            st.session_state.messages.append({
-                "role": "agent", "name": "Manager", "avatar": "🎩",
-                "content": f"✅ Spawned: {', '.join(spawned)}"
-            })
-        else:
-            available = ", ".join(data.get('available_agents', []))
-            st.session_state.messages.append({
-                "role": "agent", "name": "Manager", "avatar": "🎩",
-                "content": f"I didn't find agents to spawn. Available: {available}"
-            })
+    # NOTE: Removed spawn command interception - now handled by Manager via tools
+    # The Manager will detect spawn requests and use [tool:spawn_agent]{"name": "..."}
     
     elif target_agent or st.session_state.selected_agent:
         agent = target_agent or st.session_state.selected_agent
