@@ -433,37 +433,16 @@ def render_dashboard():
             </div>
             """)
     
-    # Thinking indicator with moon phases
+    # Thinking indicator - simple animation using GIF or emoji
     if st.session_state.thinking:
         chat_html.append("""
         <div style='display: flex; justify-content: flex-start; margin: 12px 0;'>
             <div style='background: #e3f2fd; border: 2px solid #2196f3; 
                        color: #1565c0; padding: 12px 20px; border-radius: 18px; 
-                       box-shadow: 0 2px 8px rgba(33,150,243,0.2);
-                       display: flex; align-items: center; gap: 10px;'>
-                <span>Processing</span>
-                <span class='thinking-dot'></span>
-                <span class='thinking-dot'></span>
-                <span class='thinking-dot'></span>
+                       box-shadow: 0 2px 8px rgba(33,150,243,0.2);'>
+                <span>⏳ Processing...</span>
             </div>
         </div>
-        <style>
-            @keyframes pulse-dot {
-                0%, 100% { opacity: 0.3; transform: scale(0.8); }
-                50% { opacity: 1; transform: scale(1.2); }
-            }
-            .thinking-dot {
-                animation: pulse-dot 1.5s infinite;
-                display: inline-block;
-                width: 8px;
-                height: 8px;
-                background: #2196f3;
-                border-radius: 50%;
-                margin: 0 3px;
-            }
-            .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-            .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
-        </style>
         """)
     
     chat_html.append("</div>")
