@@ -202,30 +202,6 @@ if 'logs' not in st.session_state:
 if 'manager_auto_started' not in st.session_state:
     st.session_state.manager_auto_started = False
 
-# Auto-start Manager on first load (unless in safe mode)
-if not st.session_state.manager_auto_started:
-    # Check if Manager is already running
-    data = get_data()
-    if data:
-        manager_running = any(a['name'] == 'Manager' for a in data['agents'])
-        if not manager_running:
-            # Check for safe mode flag (environment variable or query param)
-            import os
-            safe_mode = os.environ.get('WORKSPACE_SAFE_MODE', '').lower() == 'true'
-            if not safe_mode:
-                add_log("info", "Auto-starting Manager...")
-                result = st.session_state.orchestrator.spawn_agent('manager')
-                if result:
-                    resource_monitor.register_agent(result.id, result.name)
-                    add_log("success", "Manager auto-started")
-                    st.session_state.messages.append({
-                        "role": "agent", 
-                        "name": "Manager", 
-                        "avatar": "🎩",
-                        "content": "Hello! I'm your Workspace Manager. I'm here to coordinate the team, manage missions, and help you get things done. What would you like to work on today?"
-                    })
-    st.session_state.manager_auto_started = True
-
 def get_data():
     """Get current system state"""
     try:
@@ -1165,6 +1141,34 @@ def render_handoffs():
         """)
 
 # ==================== MAIN APP ====================
+
+# Auto-start Manager on first load (unless in safe mode)
+# This runs here because get_data() is defined above
+if not st.session_state.manager_auto_started:
+    try:
+        data = get_data()
+        if data:
+            manager_running = any(a['name'] == 'Manager' for a in data['agents'])
+            if not manager_running:
+                # Check for safe mode flag
+                import os
+                safe_mode = os.environ.get('WORKSPACE_SAFE_MODE', '').lower() == 'true'
+                if not safe_mode:
+                    add_log("info", "Auto-starting Manager...")
+                    result = st.session_state.orchestrator.spawn_agent('manager')
+                    if result:
+                        resource_monitor.register_agent(result.id, result.name)
+                        add_log("success", "Manager auto-started")
+                        st.session_state.messages.append({
+                            "role": "agent", 
+                            "name": "Manager", 
+                            "avatar": "🎩",
+                            "content": "Hello! I'm your Workspace Manager. I'm here to coordinate the team, manage missions, and help you get things done. What would you like to work on today?"
+                        })
+    except Exception as e:
+        # If auto-start fails, log it but don't crash
+        add_log("warning", f"Auto-start failed: {e}")
+    st.session_state.manager_auto_started = True
 
 # Debug: Log current state
 if st.session_state.get('debug_mode'):
