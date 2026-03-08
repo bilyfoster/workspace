@@ -497,36 +497,26 @@ def render_dashboard():
     for msg in st.session_state.messages:
         if msg['role'] == 'user':
             # User message - right aligned, blue
-            # Escape content for HTML safety and convert newlines
             safe_content = escape_html(msg['content']).replace('\n', '<br>')
-            chat_html.append(f"""
-            <div style='display: flex; justify-content: flex-end; margin: 12px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;'>
-                <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                           color: white; padding: 12px 16px; border-radius: 18px 18px 4px 18px; 
-                           max-width: 70%; box-shadow: 0 2px 8px rgba(102,126,234,0.3);'>
-                    <div style='font-size: 0.8em; opacity: 0.9; margin-bottom: 4px;'>You</div>
-                    {safe_content}
-                </div>
-            </div>
-            """)
+            chat_html.append(
+                f"<div style='text-align: right; margin: 12px 0;'>"
+                f"<span style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); "
+                f"color: white; padding: 10px 16px; border-radius: 18px 18px 4px 18px; "
+                f"display: inline-block; max-width: 70%; font-family: Helvetica, Arial, sans-serif;'>"
+                f"<b>You:</b><br>{safe_content}</span></div>"
+            )
         else:
             # Agent message - left aligned, gray
             avatar = msg.get('avatar', '🤖')
             name = msg.get('name', 'Agent')
-            # Format content - agent messages are trusted HTML
             content = format_agent_message(msg['content'])
-            chat_html.append(f"""
-            <div style='display: flex; justify-content: flex-start; margin: 12px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;'>
-                <div style='background: #f8f9fa; border: 1px solid #e9ecef; 
-                           color: #212529; padding: 12px 16px; border-radius: 18px 18px 18px 4px; 
-                           max-width: 70%; box-shadow: 0 2px 4px rgba(0,0,0,0.05);'>
-                    <div style='font-size: 0.8em; color: #667eea; margin-bottom: 4px;'>
-                        {avatar} {name}
-                    </div>
-                    {content}
-                </div>
-            </div>
-            """)
+            chat_html.append(
+                f"<div style='text-align: left; margin: 12px 0;'>"
+                f"<span style='background: #f0f2f5; border: 1px solid #dee2e6; "
+                f"color: #212529; padding: 10px 16px; border-radius: 18px 18px 18px 4px; "
+                f"display: inline-block; max-width: 70%; font-family: Helvetica, Arial, sans-serif;'>"
+                f"<b style='color: #667eea;'>{avatar} {name}:</b><br>{content}</span></div>"
+            )
     
     # Thinking indicator - simple animation using GIF or emoji
     if st.session_state.thinking:
@@ -541,9 +531,8 @@ def render_dashboard():
         """)
     
     chat_html.append("</div>")
-    # Render chat HTML - use native HTML rendering
-    import streamlit.components.v1 as components
-    components.html("".join(chat_html), height=600, scrolling=True)
+    # Render chat HTML
+    st.markdown("".join(chat_html), unsafe_allow_html=True)
     
     # Input
     message = st.chat_input("Message your team...")
