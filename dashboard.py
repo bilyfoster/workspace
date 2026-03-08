@@ -374,81 +374,77 @@ def render_hud():
     
     st.markdown(hud_html, unsafe_allow_html=True)
     
-    # Agent status section below HUD
+    # Agent control panel below HUD
     if agents:
         st.markdown("---")
-        st.subheader("🤖 Agent Status")
+        st.subheader("🤖 Agent Control Panel")
         
         # Create columns for each agent
-        cols = st.columns(min(len(agents), 4))
+        cols = st.columns(min(len(agents), 3))
         for idx, agent in enumerate(agents):
-            with cols[idx % 4]:
+            with cols[idx % 3]:
                 status = agent.get('status', 'idle')
                 avatar = agent.get('avatar', '🤖')
                 name = agent['name']
+                agent_id = agent['id']
                 current_task = agent.get('current_task', '')
+                thread_alive = agent.get('thread_alive', False)
                 
                 # Determine status color and icon
-                if status == 'error':
+                if status == 'error' or not thread_alive:
                     status_emoji = "🔴"
                     border_color = "#dc3545"
+                    card_bg = "#fff5f5"
                 elif status == 'working':
                     status_emoji = "⚡"
                     border_color = "#ffc107"
+                    card_bg = "#fffbeb"
                 else:
                     status_emoji = "☕"
                     border_color = "#28a745"
+                    card_bg = "#f0fff4"
                 
-                # Build status card
-                task_display = f"<div style='font-size: 0.75rem; color: #6c757d; margin-top: 4px;'>📝 {current_task[:30]}...</div>" if current_task else ""
+                # Build status card with HTML
+                task_display = f"<div style='font-size: 0.7rem; color: #6c757d; margin: 4px 0;'>📝 {current_task[:25]}...</div>" if current_task else ""
+                thread_status = "🟢 Thread Alive" if thread_alive else "🔴 Thread Dead"
                 
                 st.markdown(
-                    f"<div style='border: 2px solid {border_color}; border-radius: 12px; padding: 12px; background: white;'>"
-                    f"<div style='font-size: 1.5rem; text-align: center;'>{avatar}</div>"
-                    f"<div style='font-weight: 600; text-align: center;'>{name}</div>"
-                    f"<div style='text-align: center; color: {border_color}; font-size: 0.85rem;'>{status_emoji} {status.title()}</div>"
+                    f"<div style='border: 2px solid {border_color}; border-radius: 12px; padding: 10px; background: {card_bg}; margin-bottom: 10px;'>"
+                    f"<div style='display: flex; align-items: center; gap: 8px; margin-bottom: 5px;'>"
+                    f"<span style='font-size: 1.5rem;'>{avatar}</span>"
+                    f"<div><div style='font-weight: 600;'>{name}</div>"
+                    f"<div style='font-size: 0.75rem; color: {border_color};'>{status_emoji} {status.title()}</div></div>"
+                    f"</div>"
+                    f"<div style='font-size: 0.7rem; color: #6c757d;'>{thread_status}</div>"
                     f"{task_display}"
-                    f"<div style='font-size: 0.7rem; color: #adb5bd; margin-top: 8px; text-align: center;'>Tasks: {agent.get('tasks_completed', 0)}</div>"
+                    f"<div style='font-size: 0.7rem; color: #adb5bd; margin-top: 4px;'>Tasks: {agent.get('tasks_completed', 0)} | ID: {agent_id[:8]}</div>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
+                
+                # Action buttons
+                btn_cols = st.columns(2)
+                with btn_cols[0]:
+                    if st.button(f"🛑 Kill", key=f"kill_btn_{agent_id}", use_container_width=True):
+                        add_log("info", f"Killing agent: {name}")
+                        st.session_state.orchestrator.kill_agent(agent_id)
+                        add_log("success", f"Killed {name}")
+                        st.rerun()
+                with btn_cols[1]:
+                    if st.button(f"🔄 Restart", key=f"restart_btn_{agent_id}", use_container_width=True):
+                        add_log("info", f"Restarting agent: {name}")
+                        # Kill first
+                        st.session_state.orchestrator.kill_agent(agent_id)
+                        # Then spawn new
+                        result = st.session_state.orchestrator.spawn_agent(name.lower())
+                        if result:
+                            resource_monitor.register_agent(result.id, result.name)
+                            add_log("success", f"Restarted {name}")
+                        st.rerun()
         
         st.markdown("---")
-    
-    # Agent cards row
-    if agents:
-        st.write("**Click an agent to chat:**")
-        cols = st.columns(min(len(agents), 6))
-        for idx, agent in enumerate(agents):
-            with cols[idx % 6]:
-                # Get health state for this agent
-                agent_health = health.get('agents', {}).get(agent['id'], {})
-                health_state = agent_health.get('state', 'idle')
-                
-                # Build status line
-                if health_state == 'error' or agent['status'] == 'error':
-                    status_icon = "🔴 ERROR"
-                    btn_type = "primary"
-                elif health_state == 'stuck':
-                    status_icon = "⏱️ STUCK"
-                    btn_type = "primary"
-                elif agent['status'] == 'working':
-                    status_icon = "⚡ Working"
-                    btn_type = "primary"
-                else:
-                    status_icon = "☕ Idle"
-                    btn_type = "secondary"
-                
-                task_preview = agent.get('current_task', '')[:12] + "..." if agent.get('current_task') else "Ready"
-                
-                btn_label = f"**{agent['avatar']} {agent['name']}**  \n{status_icon}  \n_{task_preview}_"
-                
-                if st.button(btn_label, key=f"hud_agent_{agent['id']}", use_container_width=True, type=btn_type):
-                    st.session_state.selected_agent = agent
-                    add_log("info", f"Selected agent: {agent['name']}")
-                    st.rerun()
     else:
-        st.info("🤖 No agents active. Use sidebar to spawn agents.")
+        st.info("🤖 No agents active. Use sidebar to spawn agents or ask Manager to spawn a team.")
 
 def render_agent_cards():
     """Render agent cards below the sticky HUD"""
