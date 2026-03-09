@@ -5,7 +5,7 @@ Workspace Dashboard v1.9.2 - Custom Chat UI
 Usage:
     streamlit run dashboard.py
 
-Version: v1.9.5
+Version: v1.9.6
 """
 import streamlit as st
 import time
@@ -36,7 +36,7 @@ from shared.agent_factory import agent_factory
 
 # Page config
 st.set_page_config(
-    page_title="Workspace | v1.9.5",
+    page_title="Workspace | v1.9.6",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
