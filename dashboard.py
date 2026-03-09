@@ -1449,6 +1449,34 @@ with st.sidebar:
     
     st.markdown("---")
     
+    # Activity Portal - Live feed of messages and responses
+    st.markdown("## 📡 Activity Portal")
+    
+    # Show recent messages
+    recent_msgs = st.session_state.messages[-10:]  # Last 10 messages
+    if recent_msgs:
+        for msg in reversed(recent_msgs):
+            if msg['role'] == 'user':
+                st.markdown(f"**👤 You:** {msg['content'][:80]}..." if len(msg['content']) > 80 else f"**👤 You:** {msg['content']}")
+            else:
+                avatar = msg.get('avatar', '🤖')
+                name = msg.get('name', 'Agent')
+                content = msg['content'][:60] + "..." if len(msg['content']) > 60 else msg['content']
+                # Extract first line for preview
+                first_line = content.split('\n')[0]
+                st.markdown(f"**{avatar} {name}:** {first_line}")
+    else:
+        st.info("No activity yet")
+    
+    # Show recent tool executions from logs
+    if st.session_state.logs:
+        st.markdown("**Recent Actions:**")
+        for log in reversed(st.session_state.logs[-5:]):
+            icon = "✅" if log['level'] == 'success' else "⚠️" if log['level'] == 'warning' else "📝"
+            st.caption(f"{icon} [{log['time']}] {log['message'][:60]}")
+    
+    st.markdown("---")
+    
     # Manual spawn button (shown if Manager not running)
     data = get_data()
     manager_running = data and any(a['name'] == 'Manager' for a in data['agents'])
