@@ -13,6 +13,20 @@ from datetime import datetime
 from pathlib import Path
 import sys
 import re
+import logging
+
+# Setup file logging
+log_dir = Path(__file__).parent / 'logs'
+log_dir.mkdir(exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_dir / 'dashboard.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -238,6 +252,8 @@ if 'logs' not in st.session_state:
     st.session_state.logs = []
 if 'manager_auto_started' not in st.session_state:
     st.session_state.manager_auto_started = False
+if 'agent_health_checked' not in st.session_state:
+    st.session_state.agent_health_checked = False
 
 def get_data():
     """Get current system state"""
@@ -1355,6 +1371,32 @@ if not st.session_state.manager_auto_started:
         # If auto-start fails, log it but don't crash
         add_log("warning", f"Auto-start failed: {e}")
     st.session_state.manager_auto_started = True
+
+# Agent health check - respawn dead agents on load
+if not st.session_state.agent_health_checked:
+    try:
+        data = get_data()
+        if data:
+            # Check each agent's thread status
+            dead_agents = []
+            for agent in data['agents']:
+                if not agent.get('thread_alive', False) or agent.get('status') == 'error':
+                    dead_agents.append(agent)
+            
+            if dead_agents:
+                add_log("warning", f"Found {len(dead_agents)} dead/error agents, respawning...")
+                for agent in dead_agents:
+                    # Kill the dead one (cleanup)
+                    st.session_state.orchestrator.kill_agent(agent['id'])
+                    # Respawn fresh
+                    result = st.session_state.orchestrator.spawn_agent(agent['name'].lower())
+                    if result:
+                        resource_monitor.register_agent(result.id, result.name)
+                        add_log("success", f"Respawned {agent['name']}")
+                        logger.info(f"Auto-respawned agent: {agent['name']}")
+    except Exception as e:
+        logger.error(f"Agent health check failed: {e}")
+    st.session_state.agent_health_checked = True
 
 # Debug: Log current state
 if st.session_state.get('debug_mode'):
